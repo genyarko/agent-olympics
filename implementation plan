@@ -1,0 +1,319 @@
+# Boardroom — Implementation Plan
+
+A multi-agent decision system for executives. M&A target evaluation as the demo vertical. Built for the AI Agent Olympics Hackathon (Vultr + Gemini sponsor tracks).
+
+This plan is sequenced for **risk reduction first, polish last**. Each phase ends with a deployable, demoable state — so if you run out of time at any point, you still have something to show.
+
+---
+
+## Pre-build decisions to lock before writing any code
+
+These are 30-minute conversations that prevent 10-hour rewrites. Lock them on day one, morning.
+
+**Decision domain:** M&A target evaluation. *Not* "general executive decisions." The agents need a sharp specialty to feel intelligent rather than generic. Mention generality in the pitch ("the same pattern works for vendor selection, market entry, hiring") but build the demo for one thing.
+
+**Demo target company:** Pick a real, mid-sized SaaS company that's plausibly an acquisition target — something like a Series C company with public funding announcements, a known product, a TechCrunch trail. Pre-stage the inputs (deck, whiteboard photo, news links) for this company. You'll demo with this 95% of the time.
+
+**Stack (recommended, opinionated):**
+- **Backend:** Python 3.11 + FastAPI + asyncio. Python because Gemini SDK and document parsing libraries are best-in-class there.
+- **Frontend:** Next.js 14 (App Router) + Tailwind + shadcn/ui. Server-Sent Events for streaming agent output (simpler than WebSockets, perfect for one-way streams).
+- **Orchestration:** Custom orchestrator over a "blackboard" pattern (described in Phase 2). Skip LangGraph/CrewAI unless the team already knows them — for a hackathon, the abstraction overhead costs more than it saves, and the team needs to deeply understand the orchestration to demo it well.
+- **Models:** Gemini 2.5 Pro for Analyst, Red Team, and Synthesizer (heavy reasoning). Gemini 2.5 Flash for Researcher (high-frequency tool calls) and Orchestrator (planning).
+- **State:** In-memory dict keyed by `session_id`. No database. This is a 48-hour build, not a SaaS.
+- **Web research tool:** Tavily API or Serper. Free tier covers the hackathon. Have a fallback to pre-cached results.
+- **Deployment:** One Vultr VM (4 vCPU / 8GB RAM is plenty), Docker Compose, Caddy for automatic HTTPS, single domain.
+
+**Scope guardrails:**
+- No auth. Session-based via cookie. Demo mode.
+- No persistence beyond the session. Refresh wipes state. Fine.
+- One language only (English). One target domain (M&A).
+- No mobile. Desktop demo, 1440px wide.
+
+---
+
+## Phase 0 — Foundation (3 hours, day 1 morning)
+
+**Goal:** Everything is set up so the team can build without setup friction.
+
+Tasks:
+- Provision Vultr VM (Ubuntu 24, 4 vCPU / 8GB), point a domain at it, install Docker + Caddy
+- Create the GitHub repo with a sane structure: `/backend`, `/frontend`, `/infra`, `/demo-assets`, `README.md`
+- Set up Gemini API access; verify a hello-world call from a Python script using the official `google-genai` SDK
+- Configure environment variables (Gemini key, Tavily key, allowed origins) loaded from `.env`
+- Deploy a placeholder FastAPI + Next.js app to Vultr with HTTPS; verify the full pipeline works end-to-end with a "hello world" round-trip
+
+**Definition of done:** A judge can hit `https://your-domain.com`, see a placeholder page, and the backend can call Gemini Pro. Verified live, not just locally.
+
+**Why this matters:** Most hackathon teams discover deployment issues at hour 40, when it's too late. Deploy first, then iterate. Every commit afterward should auto-deploy or have a one-command deploy script.
+
+---
+
+## Phase 1 — Vertical slice with one agent (5 hours, day 1 afternoon)
+
+**Goal:** Prove the streaming pipeline works end-to-end with a single agent before building five.
+
+Build the **Analyst agent** in isolation:
+- Backend endpoint `POST /sessions` creates a session ID
+- Backend endpoint `POST /sessions/{id}/analyze` accepts a hardcoded prompt ("evaluate the financials of TargetCo based on this fixture text") and starts the Analyst agent
+- Backend endpoint `GET /sessions/{id}/stream` is a Server-Sent Events stream that emits events as the agent reasons: `{"agent": "analyst", "type": "thought", "content": "..."}`
+- Use Gemini's streaming API; relay tokens to the SSE stream as they arrive
+- Frontend connects via `EventSource`, displays the streaming output in a single panel
+- Hardcode the input — don't build the upload UI yet
+
+**Definition of done:** Open the page, click a button, watch the Analyst's reasoning appear token-by-token in real time. Deployed to Vultr, not just localhost.
+
+**Why this phase exists:** Streaming through SSE through async Python through Gemini is the technical backbone. If it doesn't work for one agent, it won't work for five. De-risk it now while the architecture is small enough to debug.
+
+**Cut if behind:** Nothing. This phase is non-negotiable. Without streaming, the demo loses its drama.
+
+---
+
+## Phase 2 — Multi-agent orchestration (8 hours, day 1 night through day 2 morning)
+
+**Goal:** Five agents working in genuine parallel, sharing state through a blackboard, with their outputs visibly streaming to the UI simultaneously.
+
+### The blackboard architecture
+
+A single shared workspace per session. Conceptually:
+
+```
+Workspace {
+  inputs: {documents, images, urls, raw_text}
+  facts: [extracted by orchestrator from inputs]
+  research_findings: [appended by Researcher]
+  analysis: [appended by Analyst]
+  red_team_critique: [appended by Red Team]
+  synthesis: {appended by Synthesizer at the end}
+  events: [append-only log of every agent action — drives the UI]
+}
+```
+
+Agents read from the workspace and append to it. They never call each other directly. This is cleaner than message-passing and the "events" log is what the UI subscribes to via SSE.
+
+### The five agents and their roles
+
+| Agent | Model | Role | Reads | Writes |
+|---|---|---|---|---|
+| **Orchestrator** | Flash | Plans the analysis, decides when each worker runs, decides when synthesis is ready | Everything | Plan steps, status |
+| **Researcher** | Flash | Pulls external data: news, filings, competitor intel via Tavily | Inputs, facts | research_findings |
+| **Analyst** | Pro | Deep analysis of business model, financials, market fit | Inputs, research_findings | analysis |
+| **Red Team** | Pro | Steel-mans the *opposing* case. Actively looks for reasons NOT to proceed. | Everything Analyst wrote | red_team_critique |
+| **Synthesizer** | Pro | Produces the final brief: recommendation, confidence, risks, follow-ups | Everything | synthesis |
+
+### Orchestration flow
+
+1. Orchestrator parses inputs, extracts facts to workspace, defines a plan
+2. Researcher and Analyst run **in parallel** (`asyncio.gather`) — they don't depend on each other initially
+3. Once both finish, Red Team runs (it needs the Analyst's output to argue against)
+4. Synthesizer runs last with the full picture
+
+### Implementation specifics
+
+- Each agent is an async function that takes `(workspace, emit_event)` and returns nothing (mutates workspace, calls emit on every meaningful step)
+- `emit_event` pushes to an `asyncio.Queue` keyed by session ID; the SSE endpoint drains the queue
+- Each agent uses Gemini's tool-calling for structured outputs (don't parse free-text JSON; use the schema feature)
+- System prompts for each agent live in `/backend/agents/prompts/` as separate `.md` files — easier to iterate than string literals in code
+- The Red Team prompt is the most important to nail: explicitly instruct it to find weaknesses, challenge assumptions, find disconfirming evidence. *"Your job is to be the smartest skeptic in the room. If the Analyst is too positive, that's a failure on your part."*
+
+**Definition of done:** Hit the endpoint with hardcoded inputs, watch all five agents emit events to a single SSE stream, see the events arrive in genuine parallel order (Researcher and Analyst events interleaved, Red Team events arriving after Analyst finishes).
+
+**Cut if behind:** If real parallelism is fighting you, run agents sequentially but emit fake "thinking..." events from idle agents to maintain the visual illusion of parallel work. Not ideal, but the demo still reads correctly.
+
+---
+
+## Phase 3 — Multimodal inputs (5 hours, day 2)
+
+**Goal:** Real input handling — PDFs, images, URLs — feeding into the workspace before agents run.
+
+### PDF upload (1.5 hours)
+
+- Frontend dropzone, `POST /sessions/{id}/inputs/document` with multipart upload
+- Backend uses PyMuPDF to extract text + page-rendered images of any pages with charts/tables
+- Charts/tables get sent to Gemini Vision in a separate call to extract structured data ("describe this chart as a table")
+- Extracted content goes to `workspace.inputs.documents`
+
+### Whiteboard / image upload (1.5 hours)
+
+- Same dropzone, image goes straight to Gemini Vision with a prompt: *"This is a photo of a whiteboard sketch related to a business decision. Extract every readable element — text, arrows, boxes, numbers — and describe the relationships."*
+- Output goes to `workspace.inputs.raw_text` with a marker indicating it came from a whiteboard
+- **This is your demo gold moment.** Make sure it works perfectly with one specific test image you'll use in the demo.
+
+### URL paste (1 hour)
+
+- Frontend text field accepting a URL
+- Backend uses a simple fetch + BeautifulSoup or Trafilatura to extract main article content
+- Content goes to `workspace.inputs.documents` with the source URL preserved
+- Have a fallback to pre-cached content if the live fetch fails (network issues during demos are common)
+
+### Pre-staged demo bundle (1 hour)
+
+- Create a "Load demo scenario: TargetCo Acquisition" button on the upload screen
+- One click loads three real inputs (deck PDF, whiteboard photo, TechCrunch article URL) and starts the analysis
+- This is what you'll click 95% of the time during demos. Live uploads are for "look, it really works with arbitrary inputs."
+
+**Definition of done:** A judge can drop in a PDF, drag in a whiteboard photo, paste a URL, click Analyze, and watch all five agents start working on real data.
+
+**Cut if behind:** Drop the URL paste feature first (least demo value). Drop whiteboard photo second (sad — it's the wow moment). Never drop PDF upload.
+
+---
+
+## Phase 4 — Synthesizer & final brief (4 hours, day 2)
+
+**Goal:** A polished, board-ready output document that judges believe a CEO could actually use.
+
+### The brief structure
+
+The Synthesizer produces a structured object via Gemini's schema-constrained output:
+
+```
+ExecutiveBrief {
+  recommendation: "Proceed" | "Proceed with conditions" | "Decline" | "Investigate further"
+  confidence_score: 0-100
+  confidence_explanation: string
+  one_paragraph_summary: string
+  key_strengths: [{point, source_citation}, ...]
+  key_risks: [{point, severity, source_citation}, ...]
+  follow_up_questions: [string, string, string]   // exactly 3
+  dissenting_views: [from Red Team's strongest counterarguments]
+}
+```
+
+### Confidence score logic
+
+Don't make this complicated. Have the Synthesizer score it as:
+- 80–100: Analyst and Red Team strongly agree on the direction
+- 50–79: Some disagreement, but a clear lean
+- 0–49: Significant disagreement, recommend further investigation
+
+Include the explanation ("Analyst found strong unit economics; however, Red Team identified material customer concentration risk that materially weakens the case") so the score feels reasoned, not arbitrary.
+
+### Visual rendering
+
+- The brief renders as a centered "document" feel with serif typography (use a font like Charter, Lora, or system serif) — this signals "real artifact a human would read" rather than "ChatGPT output"
+- Citations are clickable, scroll to the source in a side panel
+- Follow-up questions render with a "Add as new analysis" button — sets up the obvious next demo
+- Confidence score is a prominent visual element (a meter or ring), not just a number
+
+**Definition of done:** After the agents finish, a polished brief appears that a judge would believe was professionally produced. Print to PDF works and looks good (test this — if a judge asks "can I take this with me," you say yes).
+
+---
+
+## Phase 5 — UI polish & demo theater (8 hours, day 2 night through day 3 morning)
+
+This is the phase where Boardroom either wins or just-competes. The visible multi-agent disagreement is the entire moat. Do not skimp here.
+
+### Layout
+
+- **Top bar:** Session title ("Acquisition Analysis: TargetCo"), Reset button, demo scenario picker
+- **Left rail:** Inputs panel — uploaded files, URLs, raw text, with thumbnails
+- **Center:** Five agent panels in a grid (2-3-on-top / 2-on-bottom or a vertical strip — prototype both)
+- **Right rail:** Final brief area, initially empty, fills in when Synthesizer runs
+
+### The agent panels (the heart of the demo)
+
+Each panel shows:
+- Agent name and avatar (give them visual identities — a magnifying glass for Researcher, a chart for Analyst, a shield for Red Team, etc.)
+- Status indicator: idle → planning → working → done, with a subtle animation when working
+- Live streaming text of the agent's current reasoning, auto-scrolling
+- A collapsible "tool calls" section showing what tools the agent invoked (e.g., "Searched: TargetCo revenue 2024" → 3 results)
+- A "findings" section that updates as the agent commits findings to the workspace
+
+### Visual disagreement (the kill shot)
+
+When Red Team's findings contradict Analyst's findings, **highlight it visually**:
+- Both findings get a connecting line or visual link
+- A "⚡ Conflict detected" badge appears
+- The Synthesizer panel shows a "resolving conflicts..." state when this happens
+
+This single feature is what judges will remember. Budget at least 2 hours just for this.
+
+### Other polish
+
+- Smooth transitions when agents change state
+- A subtle "breathing" animation on agent panels while working (not a spinner — something more sophisticated)
+- The final brief animates in with a slight reveal effect
+- Sound effects on agent completion (subtle — a soft tone). Demo with sound on.
+- Pre-load all assets so there's no flash of unstyled content during the demo
+
+**Definition of done:** Run the demo end-to-end. Watch it without audio. Is it visually clear what's happening? Could a non-technical judge follow it? If no, keep polishing.
+
+**Cut if behind:** Sound effects, animations, and reveal effects can all be cut. The agent panels and visible disagreement cannot.
+
+---
+
+## Phase 6 — Deploy, harden, rehearse (5 hours, day 3)
+
+**Goal:** A demo that won't fail under live conditions, plus all required deliverables.
+
+### Hardening
+
+- **Demo mode toggle:** A query param `?demo=true` that uses cached agent responses for the standard scenario. If the live demo's API calls are flaky, you flip this and it's bulletproof. Be honest about what it does in your README — but don't tell the judges, since you'll only use it if something breaks.
+- **API call timeouts:** Every external call wrapped in a timeout. If Gemini hangs for >30s, abort and show a friendly error.
+- **Pre-warm the VM:** Before each demo, hit the endpoint once to warm the connection pool and load any lazy imports.
+- **Fallback web search:** If Tavily fails, swap to a pre-cached set of search results for the demo target.
+
+### Deliverables (required by the hackathon)
+
+- **GitHub repo:** Clean README with architecture diagram, setup instructions, env var docs, and a one-paragraph "what this is" hook at the top. Add a `/docs/architecture.md` with more depth.
+- **Public demo URL:** `https://boardroom.your-domain.com`. HTTPS. Works on first load with no console errors.
+- **Recorded demo video:** 90 seconds to 2 minutes. Script it. Three takes minimum. Show the upload, the agents working, the disagreement, the final brief. End with a single line about why the multi-agent architecture matters.
+- **Architecture diagram:** Hand-drawn-feel diagram of the blackboard architecture. Mermaid is fine but a designed image is better.
+
+### Rehearsal
+
+- Do **at least 5 full demo runs end-to-end**, timed. Tighten any rough spots.
+- Have one person be the "judge" asking pointed questions. Practice answers:
+  - "How is this different from ChatGPT?"
+  - "Are these really five different models or one model with five prompts?"
+  - "What happens if Red Team and Analyst disagree?"
+  - "Could this be wrong?" (Yes — that's why the brief includes confidence scores and dissenting views. The agent isn't replacing the executive, it's giving them a structured starting point.)
+
+**Definition of done:** Three back-to-back live demo runs, all successful, all under 3 minutes, with crisp answers to follow-up questions.
+
+---
+
+## Cut list if you're behind (in priority order to cut)
+
+1. Sound effects, advanced animations
+2. URL paste input (keep PDF + image)
+3. Whiteboard image input (sad but recoverable)
+4. Visual conflict highlighting (huge loss — try hard not to cut)
+5. Real parallel orchestration (fall back to sequential with fake parallelism in UI)
+6. Live web search (use cached results entirely)
+
+Things you should **never** cut:
+- The five visible agent panels
+- Streaming text via SSE
+- The polished final brief
+- Vultr deployment
+- The pre-staged demo scenario
+
+---
+
+## Suggested team allocation (4 people)
+
+- **Backend / orchestration lead:** Phases 1, 2, 4. Owns the blackboard, the agent runtime, the SSE pipeline.
+- **Frontend lead:** Phases 1 (frontend portion), 5. Owns the agent panels, layout, polish.
+- **Multimodal / tools lead:** Phase 3. Owns PDF parsing, image vision, web research, demo asset preparation.
+- **Demo / deployment / glue:** Phases 0, 6. Owns Vultr, deployment scripts, README, demo video, rehearsal coaching, plus floating support across all phases.
+
+Two-person team: combine backend+multimodal and frontend+demo. Cut Phase 3's URL paste and one of the polish items in Phase 5.
+
+---
+
+## Risk register (in order of likelihood)
+
+| Risk | Likelihood | Mitigation |
+|---|---|---|
+| Demo network unreliable on stage | High | Local cached fallback, demo mode toggle, mobile hotspot backup |
+| Gemini API rate limits or latency spikes | Medium | Pre-warm, demo-mode caching, retry with exponential backoff |
+| One agent crashes mid-demo | Medium | Each agent in a `try/except` that emits a graceful error event; orchestrator continues with remaining agents |
+| Vultr deployment hiccup hours before pitch | Medium | Mirror to Render or Railway as backup; have one-command redeploy ready |
+| Demo runs over time | Medium | Pre-time it; the brief should appear by 2:00; have a "final summary" version of the demo if cut to 1 minute |
+| Judges ask whether agents are "real" or fake | Low | Show the GitHub repo with separate prompt files; show network tab with parallel API calls; show the blackboard state |
+
+---
+
+## North star reminder
+
+The product is the **visible, structured disagreement** between specialized agents working toward a defensible decision. Every choice in this build — architecture, UI, demo — should make that more visible, not less. If a feature doesn't help a judge see five intelligent agents collaborating and disagreeing, it's a distraction. Cut accordingly.

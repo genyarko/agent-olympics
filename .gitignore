@@ -1,0 +1,30 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Node.js
+node_modules/
+.next/
+out/
+build/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Project specific
+backend/.env
+frontend/.env.local
+frontend/.env
+infra/caddy_data/
+infra/caddy_config/

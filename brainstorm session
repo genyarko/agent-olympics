@@ -1,0 +1,37 @@
+Here's how I'd think about winning this, followed by a specific recommendation.
+Read the room first
+Three things jump out from the brief that most teams will miss:
+The audience IS the judge pool. AI Week has 25,000 attendees, mostly managers and entrepreneurs. The Enterprise Utility track literally says "solve a real-world friction point for the managers and entrepreneurs at AI Week." Build something the people in the room would buy that afternoon and you have built-in advocates among the judges.
+Stack the sponsor prizes. Vultr + Gemini compose cleanly (deploy a Gemini-powered enterprise agent on a Vultr VM). Kraken is a separate game — it's a 30-day PnL competition with social-engagement scoring, not a traditional hackathon judging. Don't try to do both unless you have two teams. Pick one lane.
+Hit as many of the 5 tracks as possible with one project. The strongest projects naturally span Intelligent Reasoning + Agentic Workflows + Enterprise Utility + Multimodal + Collaborative Systems. Judges scoring across tracks will keep seeing your name.
+The winning angle
+A multi-agent "decision-grade research" system for executives — branded as something like "Boardroom" or "Due Diligence Copilot."
+Here's the pitch in one line: "You're an executive about to make a $5M decision. Instead of asking three teams to spend two weeks on it, ask Boardroom. Get a defensible briefing in 90 seconds."
+The system is a coordinated team of specialized agents:
+
+Researcher — pulls public data, news, filings, competitor intel via web/APIs
+Analyst — ingests uploaded PDFs, financial reports, decks (multimodal via Gemini Pro)
+Red Team — actively argues the opposing case so the exec sees the strongest counterargument
+Synthesizer — produces a 2-page executive brief with sources, confidence levels, and a recommendation
+Orchestrator — plans the sub-tasks, routes work, decides when "enough" research is done
+
+Demo flow: judge uploads a target company's pitch deck and asks "should I acquire them?" The UI shows agents working in parallel (live), each contributing to a shared workspace, ending in a clean briefing they could actually take to a board meeting.
+
+Sharpened Boardroom (absorbing what's valuable)
+The 90-second pitch: "When a CEO faces a major decision, they assemble a war room — analysts, advisors, devil's advocates. That takes weeks. Boardroom does it in 90 seconds. Watch."
+The demo sequence (this is the whole game — choreograph it precisely):
+
+Judge picks a scenario from a dropdown: "Should I acquire [Target Co]?"
+They upload a pitch deck PDF, drag in a photo of a whiteboard with the deal structure scribbled on it, paste a TechCrunch link
+The UI splits into five named agent panels — Researcher, Analyst, Red Team, Synthesizer, Orchestrator — and they start working visibly in parallel
+Live disagreement appears on screen: Analyst flags strong unit economics; Red Team counters with churn risk it pulled from a 10-K filing
+Final output: a 2-page brief with a recommendation, a confidence score ("72% lean toward proceed, three high-severity risks flagged"), source citations, and three follow-up questions Boardroom thinks the CEO should ask before signing
+
+Why this still beats every alternative
+Memorability. Five agents visibly arguing is the kind of thing judges describe to other judges over coffee — "did you see the multi-agent one with the red team agent?" That's how you win. A summarizer that produces a memo is forgettable, however well-executed.
+Track coverage is structural, not cosmetic. Collaborative Systems IS the architecture, not a label slapped on top. Most teams will fake multi-agent (one model, several prompts, no real coordination). Build it for real with genuine inter-agent message-passing and you stand alone.
+Sponsor fit is honest. Gemini Pro for Synthesizer and Red Team (heavy reasoning); Gemini Flash for the Researcher's high-frequency tool calls. Vultr hosts the orchestrator and the agent runtime. Both sponsors get a genuine "central role" story rather than the obligatory bolt-on most projects will offer.
+It survives the obvious follow-up question. "How is this different from ChatGPT with file upload?" → "ChatGPT gives you one perspective. Boardroom forces structured disagreement before you commit capital. The Red Team agent's job is to argue against whatever the Analyst concludes." That answer kills InsightOps-style competitors on the spot.
+Two execution decisions that matter most
+Pick one decision domain and nail it. M&A target evaluation is my pick — high stakes, document-heavy, universally understood by the audience, dramatic. Don't try to handle "any executive decision"; the demo gets diluted and the agents lose specialization. You can mention generality in the pitch ("this pattern applies to vendor selection, market entry, hiring, partnership decisions") but the demo stays narrow.
+Make agent reasoning visible — that's the product. Don't hide it behind a chat box. If a judge can't see five agents working and disagreeing, you're just InsightOps with extra steps. The streaming reasoning panels are the differentiation; budget engineering time accordingly.

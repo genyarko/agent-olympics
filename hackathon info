@@ -1,0 +1,328 @@
+About
+
+
+AI WEEK brings together over 700 international speakers, 250+ AI Exhibitors and 25,000 +attendees across 10 stages, uniting managers, entrepreneurs, engineers, researchers, and innovators shaping the future of technology.
+
+Through keynotes, masterclasses, and real-world case studies, the event explores how AI is redefining competitiveness, sustainability, and global enterprise.
+
+
+
+Hosted during AI WEEK, Europe’s largest event dedicated to Artificial Intelligence — The AI Agent Olympics Hackathon transforms conversation into creation. 
+
+
+
+
+Media & Community partners
+
+
+
+
+Challenge
+Design and deploy autonomous AI agents that move beyond copilots — into real decision-making systems that create measurable enterprise value.
+
+Choose a track that matches your vision:
+
+🧠 Intelligent Reasoning Use advanced reasoning to analyze inputs and make independent decisions. Your agent should be able to handle roadblocks and change its plan without human intervention.
+
+
+🔄 Agentic Workflows Design workflows where the agent plans its own steps, calls external tools (APIs, databases, or browsers), and manages multi-step tasks over time.
+
+
+🌍 Enterprise Utility Solve a real-world friction point for the managers and entrepreneurs at AI Week.
+
+
+
+🧩 Multimodal Intelligence Leverage the ability to process images, documents, audio, or video to unlock richer interactions— such as analyzing business reports or physical environment data.
+
+
+🤝 Collaborative Systems Build a multi-agent system where different specialized agents coordinate and share information to achieve a high-level goal that a single LLM couldn't handle alone.  
+Technology Partners & Workshops 
+
+Vultr powers the backend infrastructure for this hackathon. While projects can use any infrastructure, teams that deploy on Vultr and use it as the central system of record for planning, coordination, and execution will be eligible for the Vultr Awards.
+
+Build a Web-Based Enterprise Agent Deployed on Vultr
+Participants will design and develop a web-based AI agent purpose-built to support enterprise teams—from marketing to sales, operations, and beyond. Your mission: create a smart, agentic tool that simplifies, accelerates, or transforms workflows for today’s (and tomorrow’s) knowledge workers. Teams aiming for the Vultr Awards should deploy their core app on Vultr and optimize it for real-world business use cases.
+
+Projects should demonstrate multi-step, agentic or rule-based workflows, realistic future-of-work use cases, and a production-style web application.
+
+What We’re Looking For
+
+• Enterprise-Ready: Your agent should address pain points or opportunities within marketing, sales, customer success, HR, or other enterprise functions.
+
+• Agentic & Autonomous: Move beyond simple prompts. Build workflows where the agent can reason, plan, and act with minimal human input. Think multi-step tasks, decision trees, and feedback loops.
+
+• Future-of-Work Focused: Help teams save time, make smarter decisions, or enhance collaboration—through the lens of what future employee experience could look like.
+
+• Web-Based & Deployable: Your project should be a deployable web app. Teams aiming for the Vultr Awards should deploy it on Vultr, but you can use any stack, language, or framework. Apps should be cloud-hosted and publicly accessible (Vultr credits will be provided for eligible teams).
+
+• Scalable Tooling: We encourage—but don’t require—use of technologies like vector databases, model context protocol (MCP), or other modular, scalable AI components.
+
+
+Key Positioning
+
+• Vultr is the central backend powering your system
+
+• Your application coordinates planning, workflows, and operations
+
+• Focus on platform thinking, not just a one-off demo
+
+
+Developer Expectations
+
+Each team must provide:
+
+✅ GitHub repository with setup and documentation
+
+✅ Vultr VM backend deployment
+
+✅ Public demo URL
+
+✅ Recorded demo video
+
+• Clear explanation of architecture and use case
+
+
+Technology
+
+• Use any programming language or framework.
+
+• Use open-source LLMs, retrieval-augmented generation. (Also available via Vultr Serverless Inference)
+
+
+⚠️ Note: Vultr GPUs are not available for this event.
+
+
+Resources:
+
+• Product Documentation
+
+• Platform Documentation
+
+• Support Documentation
+
+• Reference Documentation
+• Vultr Serverless Inference Documentation
+• How to Deploy Claude Code Projects on Vultr Using Coolify
+
+• Vultr API Endpoints
+
+
+
+⚠️ Important Note on Vultr Credits
+
+
+Vultr credits will be provided for 30 days as part of this hackathon. Teams that wish to continue using their Vultr infrastructure beyond the credit period must link a valid payment method to keep their resources active.
+
+
+
+
+
+
+
+
+
+
+Gemini is Google’s family of next-generation multimodal AI models capable of reasoning across text, images, code, video, and audio. It enables developers to build powerful AI agents and intelligent systems for real-world applications.
+
+
+
+
+Google AI Studio is a browser-based environment where developers can easily prototype, test, and iterate with Gemini models before integrating them into production using the Gemini API.
+
+
+Challenge:
+
+
+Build intelligent agents or applications using Gemini models and Google AI Studio.
+
+
+
+
+Your project should:
+
+• Use Gemini (via Google AI Studio or the Gemini API) for reasoning, chat, or multimodal understanding
+
+• Implement agent-driven or automated workflows that respond to user input, data, or context
+• Demonstrate practical value through a working prototype or intelligent system
+
+
+
+Recommended Gemini Models:
+
+
+
+Participants are encouraged to select the Gemini model that best fits their agent use case:
+
+
+
+
+
+
+Gemini Flash
+Optimized for speed and low latency. Ideal for real-time applications, chat systems, and responsive agent workflows.
+
+Gemini Pro
+
+Designed for advanced reasoning and complex decision-making. Ideal for multi-step workflows, analysis, and enterprise-grade agents.
+
+
+Example Use Cases:
+
+
+
+
+
+Gemini enables rich multimodal use cases such as:
+
+
+• Processing and understanding documents (contracts, reports, research)
+• Analyzing images or visual inputs for decision-making
+• Building AI-powered internal tools (knowledge bases, assistants, automation) 
+
+
+
+
+
+
+
+Participants can explore Gemini through two main options - both include free access:
+
+🌐 Google AI Studio: A free, browser-based IDE for experimenting with Gemini. You can write prompts, test outputs, tweak parameters, and prototype without needing to set up billing or any API keys. Ideal for prototyping during the hackathon.
+
+
+
+
+💻 Gemini API:  For developers ready to integrate Gemini directly into their apps. The free tier includes a monthly allowance of tokens for text and multimodal inputs/outputs, letting you test and build with Gemini’s core models at no cost. Paid usage only applies for higher-volume or production-level apps.
+
+
+🔓 Google Cloud Credits:
+New Google Cloud accounts receive $300 in free Google Cloud credits, valid for 90 days.
+These credits can be used across eligible Google Cloud services, including Gemini API usage, subject to Google Cloud’s standard terms and regional availability.
+
+👉 Learn more about Google Cloud’s free tier
+
+Note: After the free credits are used or expire, continued usage of billable services requires enabling billing on your Google Cloud account. Charges only apply if you choose to continue using paid services.
+
+
+
+
+1. Visit the Gemini docs
+2. Follow the Quickstart Guide to explore Gemini in AI Studio
+
+3. Experiment with multimodal prompts
+4. Build and test your agent or application
+
+
+📘 Resources:
+
+• Gemini API models 
+• Gemini 3 Developer Guide
+
+• Gemini API pricing & models docs
+
+• Gemini API billing FAQ & limits
+
+• Google AI Studio official overview
+
+• Google AI Studio quickstart 
+• Antigravity 
+
+
+
+Kraken is one of the most established cryptocurrency exchanges in the world, trusted by institutions and individual traders, and known for its deep liquidity and trading infrastructure.
+
+
+
+For this hackathon, participants will work with two Kraken products:
+
+• Kraken CLI is an AI-native command-line interface for programmatic trading. It's a zero-dependency binary with a built-in MCP server, handling all exchange complexity (authentication, rate limiting, order management) so you can focus entirely on building your agent's strategy logic.
+
+• xStocks are 1:1 asset-backed tokenized U.S. equities and ETFs that can be traded 24/7 on-chain. Using the Kraken CLI as the execution layer, participants can design strategies that autonomously buy, sell, and manage positions without handling complex exchange integrations.
+
+
+
+Challenge:
+
+Build an autonomous AI agent that trades xStocks: tokenized U.S. stocks and ETFs, using the Kraken CLI as its execution layer.
+
+ 
+Your agent should analyze market signals, form a strategy, and execute trades programmatically without manual intervention. Whether you build a momentum-based stock picker, a portfolio rebalancer, or an event-driven trading system. The goal is a working agent that makes real decisions and trades real positions. 
+
+
+✅ How Agents Are Ranked:
+Agents in the Kraken Challenge are evaluated across two independent categories.
+
+
+
+1️⃣ Trading Performance (PnL)
+Agents are ranked purely by net PnL (realized + unrealized) over the competition period
+
+
+
+How it works:
+
+• Submission: Each participant provides a read-only Kraken API key linked to their trading account. This allows lablab.ai and Kraken to view trade history, no execution or withdrawal access is granted
+
+• Audit: Kraken performs a final audit on top agents before prizes are distributed.
+• Ranking: Winners are determined solely by net PnL at the end of the competition window. 
+
+
+Requirements:
+
+• Agents must use Kraken CLI as the execution layer
+• One submission per participant or team
+
+
+2️⃣ Social Engagement
+Build in public. Share your journey. Inspire the community.
+
+
+
+Over a 30-day window, participants earn a Social Engagement Score based purely on quantitative metrics from public platforms: Twitter/X, YouTube, blogs, or other channels.
+
+
+
+How Winners are Determined:
+• lablab.ai tracks engagement metrics: impressions, likes, shares, and reach across linked social accounts
+• Rankings are determined purely by quantitative data: no subjective judging
+• Participants can monitor their position throughout the competition window
+
+
+📣 When Posting, Tag:
+Kraken
+
+X: @krakenfx
+IG:@krakenfx
+LI: Kraken
+
+
+lablab.ai
+
+X: @lablabai
+IG: @lablab.ai
+LI: lablab.ai
+Surge
+
+X: @Surgexyz_
+LI: Surge.xyz
+
+
+🚀 How to Get Started
+
+1. Install the Kraken CLI from the official repository
+
+2. Configure your Kraken API access and connect it to your agent
+
+3. Ensure you have access to the xStocks market 
+
+4.  Build an autonomous AI trading agent that analyzes signals and trades xStocks through Kraken CLI  
+
+5. Share your progress publicly as part of the Social Engagement challenge
+
+
+
+📘 Resources
+• Kraken CLI GitHub Repository
+• xStocks Documentation
+
+
