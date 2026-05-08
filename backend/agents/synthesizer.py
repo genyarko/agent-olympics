@@ -51,7 +51,7 @@ async def run_synthesizer(session_id: str):
         # Stream a short reasoning pass first so the panel shows live work
         # before the schema-constrained call returns.
         reasoning_stream = await client.aio.models.generate_content_stream(
-            model='gemini-2.0-pro-exp-02-05',
+            model='gemini-2.5-pro',
             contents=(
                 "Briefly walk through how you will weigh the Analyst's findings "
                 "against the Red Team's critique to produce the recommendation. "
@@ -67,7 +67,7 @@ async def run_synthesizer(session_id: str):
         await manager.emit_event(session_id, "synthesizer", "thought", "Producing structured brief...")
 
         response = await client.aio.models.generate_content(
-            model='gemini-2.0-pro-exp-02-05',
+            model='gemini-2.5-pro',
             contents=prompt,
             config={
                 'system_instruction': system_instruction,
