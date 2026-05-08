@@ -13,7 +13,7 @@ async def run_analyst(session_id: str, prompt: str):
 
     try:
         response_stream = await client.aio.models.generate_content_stream(
-            model='gemini-3.1-pro-preview',
+            model='gemini-2.5-pro',
             contents=prompt,
             config={'system_instruction': system_instruction},
         )
