@@ -356,7 +356,7 @@ export default function Home() {
           <div>
             <h1 className="text-xl font-bold tracking-tight">Boardroom</h1>
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest -mt-1">
-              {uploadedFiles.length > 0 ? "Analysis in Progress: TargetCo" : "M&A Due Diligence Copilot (v1.0.1)"}
+              {uploadedFiles.length > 0 ? "Analysis in Progress: TargetCo" : "M&A Due Diligence Copilot (v1.0.3)"}
             </p>
           </div>
         </div>
