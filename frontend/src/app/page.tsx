@@ -74,12 +74,13 @@ export default function Home() {
 
   useEffect(() => {
     const checkBackend = async () => {
+      // If we are already in demo mode, don't keep polling the backend
       if (isDemoMode) {
         setBackendStatus("online");
         return;
       }
       try {
-        const res = await fetch("/api/");
+        const res = await fetch("/api/", { cache: 'no-store' });
         if (res.ok) setBackendStatus("online");
         else setBackendStatus("offline");
       } catch {
@@ -87,7 +88,12 @@ export default function Home() {
       }
     };
     checkBackend();
-    const interval = setInterval(checkBackend, 10000);
+    
+    // Only poll if we aren't in demo mode
+    const interval = setInterval(() => {
+      if (!isDemoMode) checkBackend();
+    }, 15000);
+    
     return () => clearInterval(interval);
   }, [isDemoMode]);
 
