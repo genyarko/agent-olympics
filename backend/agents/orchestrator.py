@@ -47,7 +47,7 @@ async def _detect_conflicts(client, analysis: str, critique: str) -> str:
     )
     try:
         resp = await client.aio.models.generate_content(
-            model='gemini-2.5-flash',
+            model='gemini-3.1-flash-lite-preview',
             contents=prompt,
         )
         text = (resp.text or "").strip()
@@ -78,7 +78,7 @@ async def run_orchestrator(session_id: str):
         inputs_summary = json.dumps(session.workspace["inputs"], indent=2)
         
         facts_response = await client.aio.models.generate_content(
-            model='gemini-2.5-flash',
+            model='gemini-3.1-flash-lite-preview',
             contents=f"Extract the most important facts from these inputs for an M&A analysis:\n\n{inputs_summary}",
             config={'system_instruction': system_instruction}
         )
@@ -95,7 +95,7 @@ async def run_orchestrator(session_id: str):
         
         # Try to extract target name from facts
         name_extract = await client.aio.models.generate_content(
-            model='gemini-2.5-flash',
+            model='gemini-3.1-flash-lite-preview',
             contents=f"What is the name of the target company in these facts? Return ONLY the company name, nothing else.\n\n{facts}",
         )
         target_name = _clean_target_name(name_extract.text if name_extract else "")

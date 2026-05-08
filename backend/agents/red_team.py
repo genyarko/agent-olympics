@@ -34,7 +34,7 @@ async def run_red_team(session_id: str):
         )
 
         response_stream = await client.aio.models.generate_content_stream(
-            model='gemini-2.5-pro',
+            model='gemini-3.1-pro-preview',
             contents=prompt,
             config={'system_instruction': system_instruction},
         )
