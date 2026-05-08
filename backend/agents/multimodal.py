@@ -29,7 +29,7 @@ async def process_pdf(file_bytes: bytes) -> str:
                 try:
                     prompt = "This page contains images, charts, or tables. Please describe them in detail, including any structured data."
                     response = await client.aio.models.generate_content(
-                        model='gemini-3.1-flash-lite-preview',
+                        model='gemini-3-flash-preview',
                         contents=[
                             prompt,
                             {
@@ -71,7 +71,7 @@ async def process_image(image_bytes: bytes) -> str:
         )
 
         response = await client.aio.models.generate_content(
-            model='gemini-3.1-flash-lite-preview', # Use flash for vision tasks
+            model='gemini-3-flash-preview', # Use flash for vision tasks
             contents=[
                 prompt,
                 {
