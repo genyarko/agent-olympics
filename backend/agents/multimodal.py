@@ -5,6 +5,7 @@ import trafilatura
 import os
 import logging
 import io
+from docx import Document
 from google import genai
 from agents.utils import get_gemini_client
 

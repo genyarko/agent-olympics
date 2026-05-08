@@ -4,6 +4,40 @@ A multi-agent decision system for executives. M&A target evaluation as the demo 
 
 This plan is sequenced for **risk reduction first, polish last**. Each phase ends with a deployable, demoable state — so if you run out of time at any point, you still have something to show.
 
+To fix this and deploy successfully, follow these steps in your terminal:
+
+  1. Navigate to the Backend Directory
+  You must run the deployment commands from inside the backend folder where the Dockerfile and requirements.txt live.
+
+   1 cd backend
+
+  2. Launch on Fly.io
+  Since I just created a fly.toml for you in that directory, you can now run:
+
+   1 fly launch
+   * When it asks: "Do you want to copy its configuration over to the new app?", say Yes.
+   * When it asks: "Do you want to tweak these settings?", say No (unless you want to change the app name).
+
+  3. Set your Secrets
+  Your backend needs API keys to work. Run these commands from the backend folder:
+
+   1 fly secrets set TAVILY_API_KEY=your_key_here
+   2 fly secrets set GOOGLE_CLOUD_PROJECT=your_project_id
+
+  4. Update Vercel
+  Once Fly.io gives you your new URL (e.g., https://boardroom-backend.fly.dev), you must update your Vercel project:
+   1. Go to Vercel Dashboard > Settings > Environment Variables.
+   2. Update BACKEND_URL to your new Fly.io URL.
+   3. Redeploy the frontend.
+
+  Summary of what I did:
+  I created a backend/fly.toml file for you that tells Fly.io to:
+   - Use the Dockerfile in the same folder.
+   - Listen on port 8000.
+   - Automatically scale down to zero when not in use (to save you money/credits).
+
+  Try running cd backend and then fly deploy or fly launch now!
+
 ---
 
 ## Pre-build decisions to lock before writing any code
