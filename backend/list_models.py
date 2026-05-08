@@ -1,21 +1,13 @@
 import os
 from google import genai
-from google.genai import types
 from dotenv import load_dotenv
+from agents.utils import get_gemini_client
 
 load_dotenv()
 
 def list_models():
-    project = os.getenv("GOOGLE_CLOUD_PROJECT")
-    location = "us-central1"
-    
-    client = genai.Client(
-        vertexai=True,
-        project=project,
-        location=location
-    )
-
-    print(f"Listing models for Project: {project}, Location: {location}...")
+    client = get_gemini_client()
+    print("Listing models...")
     
     try:
         for model in client.models.list():

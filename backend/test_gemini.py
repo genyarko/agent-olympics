@@ -1,24 +1,13 @@
 import os
 from google import genai
-from google.genai import types
 from dotenv import load_dotenv
+from agents.utils import get_gemini_client
 
 load_dotenv()
 
 def test_gemini():
-    # Configure client for Vertex AI as indicated by environment variables
-    project = os.getenv("GOOGLE_CLOUD_PROJECT")
-    location = os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1")
-    if location == "global":
-        location = "us-central1" # standard location for vertex models
-    
-    client = genai.Client(
-        vertexai=True,
-        project=project,
-        location=location
-    )
-
-    print(f"Testing Gemini Flash via Vertex AI (Project: {project}, Location: {location})...")
+    client = get_gemini_client()
+    print("Testing Gemini connection...")
     
     try:
         response = client.models.generate_content(

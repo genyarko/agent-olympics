@@ -1,7 +1,7 @@
 import json
 import logging
 from session_manager import manager
-from agents.utils import get_prompt, get_vertex_client
+from agents.utils import get_prompt, get_gemini_client
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +18,7 @@ async def run_red_team(session_id: str):
     facts = workspace.get("facts", "")
     inputs = json.dumps(workspace.get("inputs", {}), indent=2)
 
-    client = get_vertex_client()
+    client = get_gemini_client()
     system_instruction = get_prompt("red_team")
 
     await manager.emit_event(session_id, "red_team", "status", "starting")

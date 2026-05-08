@@ -3,7 +3,7 @@ import logging
 import json
 import re
 from session_manager import manager
-from agents.utils import get_prompt, get_vertex_client
+from agents.utils import get_prompt, get_gemini_client
 from agents.researcher import run_researcher
 from agents.analyst import run_analyst
 from agents.red_team import run_red_team
@@ -66,7 +66,7 @@ async def run_orchestrator(session_id: str):
         logger.error(f"Session {session_id} not found")
         return
 
-    client = get_vertex_client()
+    client = get_gemini_client()
     system_instruction = get_prompt("orchestrator")
 
     await manager.emit_event(session_id, "orchestrator", "status", "starting")

@@ -8,11 +8,17 @@ def get_prompt(agent_name: str) -> str:
         return f.read()
 
 
-def get_vertex_client() -> genai.Client:
+def get_gemini_client() -> genai.Client:
+    api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    if api_key:
+        return genai.Client(api_key=api_key)
+
     project = os.getenv("GOOGLE_CLOUD_PROJECT")
     location = os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1")
     if location == "global":
         location = "us-central1"
+    
+    # Fallback to Vertex AI if no API key is found
     return genai.Client(vertexai=True, project=project, location=location)
 
 

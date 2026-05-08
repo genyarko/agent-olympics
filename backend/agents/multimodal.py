@@ -6,8 +6,7 @@ import os
 import logging
 import io
 from google import genai
-from typing import List
-from docx import Document
+from agents.utils import get_gemini_client
 
 logger = logging.getLogger(__name__)
 
@@ -16,22 +15,8 @@ async def process_pdf(file_bytes: bytes) -> str:
         doc = fitz.open(stream=file_bytes, filetype="pdf")
         text = ""
         
-        project = os.getenv("GOOGLE_CLOUD_PROJECT")
-        location = os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1")
-        if location == "global":
-            location = "us-central1"
-
-        # Check if we have Vertex AI configured
-        client = None
-        if project:
-            try:
-                client = genai.Client(
-                    vertexai=True,
-                    project=project,
-                    location=location
-                )
-            except Exception as ce:
-                logger.warning(f"Could not initialize Vertex AI client: {ce}. Vision features disabled.")
+        # Use common gemini client helper
+        client = get_gemini_client()
 
         for page in doc:
             text += page.get_text()
@@ -76,20 +61,8 @@ async def process_docx(file_bytes: bytes) -> str:
         return f"Error processing DOCX: {e}"
 
 async def process_image(image_bytes: bytes) -> str:
-    project = os.getenv("GOOGLE_CLOUD_PROJECT")
-    location = os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1")
-    if location == "global":
-        location = "us-central1"
-
-    if not project:
-        return "Error: GOOGLE_CLOUD_PROJECT environment variable not set. Cannot process image via Gemini Vision."
-
     try:
-        client = genai.Client(
-            vertexai=True,
-            project=project,
-            location=location
-        )
+        client = get_gemini_client()
 
         # Prompt from implementation plan
         prompt = (

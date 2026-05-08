@@ -3,7 +3,7 @@ import json
 from pydantic import BaseModel, Field
 from typing import List
 from session_manager import manager
-from agents.utils import get_prompt, get_vertex_client, workspace_for_synthesis
+from agents.utils import get_prompt, get_gemini_client, workspace_for_synthesis
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +35,7 @@ async def run_synthesizer(session_id: str):
 
     workspace_summary = json.dumps(workspace_for_synthesis(session.workspace), indent=2)
 
-    client = get_vertex_client()
+    client = get_gemini_client()
     system_instruction = get_prompt("synthesizer")
 
     await manager.emit_event(session_id, "synthesizer", "status", "starting")

@@ -2,7 +2,7 @@ import os
 import logging
 import httpx
 from session_manager import manager
-from agents.utils import get_prompt, get_vertex_client
+from agents.utils import get_prompt, get_gemini_client
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +53,7 @@ async def search_tavily(query: str) -> str:
 
 async def run_researcher(session_id: str, topic: str):
     logger.info(f"Starting Researcher agent for session {session_id}")
-    client = get_vertex_client()
+    client = get_gemini_client()
     system_instruction = get_prompt("researcher")
 
     await manager.emit_event(session_id, "researcher", "status", "starting")

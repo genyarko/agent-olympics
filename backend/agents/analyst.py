@@ -1,12 +1,12 @@
 import logging
 from session_manager import manager
-from agents.utils import get_prompt, get_vertex_client
+from agents.utils import get_prompt, get_gemini_client
 
 logger = logging.getLogger(__name__)
 
 async def run_analyst(session_id: str, prompt: str):
     logger.info(f"Starting Analyst agent for session {session_id}")
-    client = get_vertex_client()
+    client = get_gemini_client()
     system_instruction = get_prompt("analyst")
 
     await manager.emit_event(session_id, "analyst", "status", "starting")
