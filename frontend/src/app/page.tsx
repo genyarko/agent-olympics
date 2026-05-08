@@ -58,7 +58,7 @@ export default function Home() {
   const eventSourceRef = useRef<EventSource | null>(null);
   const scrollRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
-  const [uploadedFiles, setUploadedFiles] = useState<string[]>([]);
+  const [uploadedFiles, setUploadedFiles] = useState<{name: string, id: string}[]>([]);
   const [uploadedUrls, setUploadedUrls] = useState<string[]>([]);
   const [urlInput, setUrlInput] = useState("");
   const [backendStatus, setBackendStatus] = useState<"connecting" | "online" | "offline">("connecting");
@@ -66,6 +66,15 @@ export default function Home() {
   const imageInputRef = useRef<HTMLInputElement>(null);
 
   const [isDemoMode, setIsDemoMode] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
+
+  const removeFile = (id: string) => {
+    setUploadedFiles((prev) => prev.filter(f => f.id !== id));
+  };
+
+  const removeUrl = (url: string) => {
+    setUploadedUrls((prev) => prev.filter(u => u !== url));
+  };
 
   useEffect(() => {
     const isDemo = typeof window !== "undefined" && window.location.search.includes("demo=true");
@@ -115,8 +124,10 @@ export default function Home() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    const fileId = Math.random().toString(36).substring(7);
+
     if (isDemoMode) {
-      setUploadedFiles((prev) => [...prev, file.name]);
+      setUploadedFiles((prev) => [...prev, { name: file.name, id: fileId }]);
       if (e.target) e.target.value = "";
       return;
     }
@@ -132,7 +143,7 @@ export default function Home() {
       });
 
       if (res.ok) {
-        setUploadedFiles((prev) => [...prev, file.name]);
+        setUploadedFiles((prev) => [...prev, { name: file.name, id: fileId }]);
       }
     } catch (err) {
       console.error(err);
@@ -285,7 +296,10 @@ export default function Home() {
     if (backendStatus !== "online") {
       setIsDemoMode(true);
       setSessionId("demo-session");
-      setUploadedFiles(["TargetCo_Pitch_Deck.pdf", "Whiteboard_Notes.jpg"]);
+      setUploadedFiles([
+        { name: "TargetCo_Pitch_Deck.pdf", id: "demo-1" },
+        { name: "Whiteboard_Notes.jpg", id: "demo-2" }
+      ]);
       setUploadedUrls(["https://techcrunch.com/targetco-funding"]);
       alert("Backend offline. Switching to Demo Mode. 'TargetCo' scenario loaded.");
       return;
@@ -297,7 +311,10 @@ export default function Home() {
       setSessionId(session_id);
       await fetch(`/api/sessions/${session_id}/demo`, { method: "POST" });
       
-      setUploadedFiles(["TargetCo_Pitch_Deck.pdf", "Whiteboard_Notes.jpg"]);
+      setUploadedFiles([
+        { name: "TargetCo_Pitch_Deck.pdf", id: "demo-1" },
+        { name: "Whiteboard_Notes.jpg", id: "demo-2" }
+      ]);
       setUploadedUrls(["https://techcrunch.com/targetco-funding"]);
       
       alert("Demo scenario 'TargetCo' loaded. Click 'Run Analysis' to start.");
@@ -305,7 +322,10 @@ export default function Home() {
       console.error("Failed to load demo scenario from backend, falling back to local demo:", err);
       setIsDemoMode(true);
       setSessionId("demo-session");
-      setUploadedFiles(["TargetCo_Pitch_Deck.pdf", "Whiteboard_Notes.jpg"]);
+      setUploadedFiles([
+        { name: "TargetCo_Pitch_Deck.pdf", id: "demo-1" },
+        { name: "Whiteboard_Notes.jpg", id: "demo-2" }
+      ]);
       setUploadedUrls(["https://techcrunch.com/targetco-funding"]);
       alert("Backend error. Switching to Demo Mode. 'TargetCo' scenario loaded.");
     }
@@ -387,10 +407,28 @@ export default function Home() {
       <div className="flex flex-1 overflow-hidden">
         {/* Left Sidebar - Inputs */}
         <aside className="w-72 bg-white border-r border-slate-200 flex flex-col shrink-0 print:hidden">
-          <div className="p-4 border-b border-slate-100">
+          <div className="p-4 border-b border-slate-100 flex items-center justify-between">
             <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Workspace Inputs</h2>
+            <button 
+              onClick={() => setShowHelp(!showHelp)}
+              className="p-1 hover:bg-slate-100 rounded-full transition-colors"
+              title="What to upload?"
+            >
+              <AlertCircle className={cn("w-4 h-4 transition-colors", showHelp ? "text-blue-500" : "text-slate-400")} />
+            </button>
           </div>
           <div className="flex-1 overflow-y-auto p-4 space-y-6">
+            {showHelp && (
+              <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg animate-in fade-in slide-in-from-top-2">
+                <h4 className="text-[10px] font-bold text-blue-600 uppercase mb-1">Upload Guide</h4>
+                <p className="text-[10px] text-blue-800 leading-relaxed">
+                  <strong>PDF/Doc:</strong> Business decks, reports, or contracts. We extract text and describe charts.<br/><br/>
+                  <strong>Image:</strong> Upload whiteboard photos or sketches. Gemini Vision interprets handwritten deal structures and SWOTs.<br/><br/>
+                  <strong>URL:</strong> Paste news or filings. Our Researcher will cross-reference them.
+                </p>
+              </div>
+            )}
+
             <section>
               <h3 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
                 <FileCode className="w-4 h-4 text-slate-400" />
@@ -415,24 +453,30 @@ export default function Home() {
                 <div className="grid grid-cols-2 gap-2">
                   <div 
                     onClick={() => fileInputRef.current?.click()}
-                    className="p-3 border border-dashed border-slate-200 rounded-lg bg-slate-50 flex flex-col items-center justify-center gap-2 cursor-pointer hover:bg-slate-100 transition-colors text-center"
+                    className="p-3 border border-dashed border-slate-200 rounded-lg bg-slate-50 flex flex-col items-center justify-center gap-2 cursor-pointer hover:bg-slate-100 transition-colors text-center group"
                   >
-                    <Upload className="w-5 h-5 text-slate-400" />
-                    <span className="text-[10px] font-medium text-slate-500">Upload PDF</span>
+                    <Upload className="w-5 h-5 text-slate-400 group-hover:text-blue-500 transition-colors" />
+                    <span className="text-[10px] font-medium text-slate-500">Upload Doc</span>
                   </div>
                   <div 
                     onClick={() => imageInputRef.current?.click()}
-                    className="p-3 border border-dashed border-slate-200 rounded-lg bg-slate-50 flex flex-col items-center justify-center gap-2 cursor-pointer hover:bg-slate-100 transition-colors text-center"
+                    className="p-3 border border-dashed border-slate-200 rounded-lg bg-slate-50 flex flex-col items-center justify-center gap-2 cursor-pointer hover:bg-slate-100 transition-colors text-center group"
                   >
-                    <Upload className="w-5 h-5 text-slate-400" />
+                    <Upload className="w-5 h-5 text-slate-400 group-hover:text-blue-500 transition-colors" />
                     <span className="text-[10px] font-medium text-slate-500">Upload Image</span>
                   </div>
                 </div>
 
-                {uploadedFiles.map((filename, i) => (
-                  <div key={i} className="p-2 bg-blue-50 border border-blue-100 rounded-md flex items-center gap-2">
+                {uploadedFiles.map((file, i) => (
+                  <div key={file.id} className="p-2 bg-blue-50 border border-blue-100 rounded-md flex items-center gap-2 group relative">
                     <CheckCircle2 className="w-4 h-4 text-blue-500 shrink-0" />
-                    <span className="text-xs font-medium text-blue-700 truncate" title={filename}>{filename}</span>
+                    <span className="text-xs font-medium text-blue-700 truncate pr-4" title={file.name}>{file.name}</span>
+                    <button 
+                      onClick={() => removeFile(file.id)}
+                      className="absolute right-1 top-1.5 p-0.5 text-blue-300 hover:text-rose-500 transition-colors opacity-0 group-hover:opacity-100"
+                    >
+                      <AlertCircle className="w-3 h-3 rotate-45" />
+                    </button>
                   </div>
                 ))}
               </div>
@@ -460,11 +504,17 @@ export default function Home() {
                   let hostname = url;
                   try { hostname = new URL(url).hostname; } catch {}
                   return (
-                    <div key={i} className="p-2 bg-slate-100 rounded-md flex items-center gap-2">
+                    <div key={i} className="p-2 bg-slate-100 rounded-md flex items-center gap-2 group relative">
                       <div className="w-4 h-4 rounded bg-white flex items-center justify-center shadow-xs shrink-0">
                         <span className="text-[8px] font-bold">{hostname.substring(0, 2).toUpperCase()}</span>
                       </div>
-                      <span className="text-xs text-slate-600 truncate" title={url}>{hostname}</span>
+                      <span className="text-xs text-slate-600 truncate pr-4" title={url}>{hostname}</span>
+                      <button 
+                        onClick={() => removeUrl(url)}
+                        className="absolute right-1 top-1.5 p-0.5 text-slate-300 hover:text-rose-500 transition-colors opacity-0 group-hover:opacity-100"
+                      >
+                        <AlertCircle className="w-3 h-3 rotate-45" />
+                      </button>
                     </div>
                   );
                 })}
