@@ -73,7 +73,7 @@ async def run_researcher(session_id: str, topic: str):
         
         # Step 1: Generate search query
         search_query_response = await client.aio.models.generate_content(
-            model='gemini-2.5-flash',
+            model='gemini-2.0-flash',
             contents=f"Generate a single effective search query to find news, filings, and competitor intel for: {topic}",
             config={'system_instruction': system_instruction}
         )
@@ -88,7 +88,7 @@ async def run_researcher(session_id: str, topic: str):
         await manager.emit_event(session_id, "researcher", "thought", "Synthesizing research findings...")
         
         response_stream = await client.aio.models.generate_content_stream(
-            model='gemini-2.5-flash',
+            model='gemini-2.0-flash',
             contents=f"Based on these search results, provide a concise summary of findings for {topic}:\n\n{search_results}",
             config={'system_instruction': system_instruction},
         )

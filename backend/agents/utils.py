@@ -11,6 +11,7 @@ def get_prompt(agent_name: str) -> str:
 def get_gemini_client() -> genai.Client:
     api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
     if api_key:
+        # Use Google AI Studio (Generative AI API) which supports API Keys
         return genai.Client(api_key=api_key)
 
     project = os.getenv("GOOGLE_CLOUD_PROJECT")
@@ -18,8 +19,11 @@ def get_gemini_client() -> genai.Client:
     if location == "global":
         location = "us-central1"
     
-    # Fallback to Vertex AI if no API key is found
-    return genai.Client(vertexai=True, project=project, location=location)
+    # Use Vertex AI (Enterprise) which requires Service Account / ADC
+    if project:
+        return genai.Client(vertexai=True, project=project, location=location)
+    
+    raise ValueError("No authentication found. Set GEMINI_API_KEY for AI Studio or GOOGLE_CLOUD_PROJECT for Vertex AI.")
 
 
 def workspace_for_synthesis(workspace: dict) -> dict:
