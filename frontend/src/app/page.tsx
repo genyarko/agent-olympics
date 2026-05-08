@@ -401,7 +401,7 @@ export default function Home() {
                   type="file" 
                   ref={fileInputRef} 
                   className="hidden" 
-                  accept=".pdf,.txt,.md" 
+                  accept=".pdf,.txt,.md,.docx" 
                   onChange={(e) => handleFileUpload(e, 'document')}
                 />
                 <input 

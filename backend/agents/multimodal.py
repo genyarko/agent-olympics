@@ -4,8 +4,10 @@ from bs4 import BeautifulSoup
 import trafilatura
 import os
 import logging
+import io
 from google import genai
 from typing import List
+from docx import Document
 
 logger = logging.getLogger(__name__)
 
@@ -19,17 +21,23 @@ async def process_pdf(file_bytes: bytes) -> str:
         if location == "global":
             location = "us-central1"
 
-        client = genai.Client(
-            vertexai=True,
-            project=project,
-            location=location
-        )
+        # Check if we have Vertex AI configured
+        client = None
+        if project:
+            try:
+                client = genai.Client(
+                    vertexai=True,
+                    project=project,
+                    location=location
+                )
+            except Exception as ce:
+                logger.warning(f"Could not initialize Vertex AI client: {ce}. Vision features disabled.")
 
         for page in doc:
             text += page.get_text()
             
-            # If the page contains images, render it and ask Gemini to describe any charts or tables
-            if len(page.get_images()) > 0:
+            # If the page contains images and we have a client, ask Gemini to describe any charts or tables
+            if client and len(page.get_images()) > 0:
                 pix = page.get_pixmap()
                 img_bytes = pix.tobytes("png")
                 
@@ -55,19 +63,34 @@ async def process_pdf(file_bytes: bytes) -> str:
         logger.error(f"Error processing PDF: {e}")
         return f"Error processing PDF: {e}"
 
+async def process_docx(file_bytes: bytes) -> str:
+    try:
+        f = io.BytesIO(file_bytes)
+        doc = Document(f)
+        full_text = []
+        for para in doc.paragraphs:
+            full_text.append(para.text)
+        return '\n'.join(full_text)
+    except Exception as e:
+        logger.error(f"Error processing DOCX: {e}")
+        return f"Error processing DOCX: {e}"
+
 async def process_image(image_bytes: bytes) -> str:
     project = os.getenv("GOOGLE_CLOUD_PROJECT")
     location = os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1")
     if location == "global":
         location = "us-central1"
 
-    client = genai.Client(
-        vertexai=True,
-        project=project,
-        location=location
-    )
+    if not project:
+        return "Error: GOOGLE_CLOUD_PROJECT environment variable not set. Cannot process image via Gemini Vision."
 
     try:
+        client = genai.Client(
+            vertexai=True,
+            project=project,
+            location=location
+        )
+
         # Prompt from implementation plan
         prompt = (
             "This is a photo related to a business decision (possibly a whiteboard sketch or a chart). "

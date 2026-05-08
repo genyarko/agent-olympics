@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 
 from session_manager import manager
 from agents.orchestrator import run_orchestrator
-from agents.multimodal import process_pdf, process_image, process_url
+from agents.multimodal import process_pdf, process_image, process_url, process_docx
 
 # Configure logging
 logging.basicConfig(
@@ -52,8 +52,12 @@ async def upload_document(session_id: str, file: UploadFile = File(...)):
         raise HTTPException(status_code=404, detail="Session not found")
     
     content = await file.read()
-    if file.filename.lower().endswith(".pdf"):
+    filename_lower = file.filename.lower()
+    
+    if filename_lower.endswith(".pdf"):
         text = await process_pdf(content)
+    elif filename_lower.endswith(".docx"):
+        text = await process_docx(content)
     else:
         text = content.decode("utf-8", errors="ignore")
     
