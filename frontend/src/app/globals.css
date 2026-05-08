@@ -12,10 +12,13 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer utilities {
+  @keyframes breathe {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.01); opacity: 0.95; }
+  }
+  .animate-breathe {
+    animation: breathe 3s ease-in-out infinite;
   }
 }
 

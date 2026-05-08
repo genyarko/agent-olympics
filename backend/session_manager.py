@@ -35,10 +35,10 @@ class SessionManager:
     def get_session(self, session_id: str) -> Session:
         return self.sessions.get(session_id)
 
-    async def emit_event(self, session_id: str, agent: str, type: str, content: str):
+    async def emit_event(self, session_id: str, agent: str, event_type: str, content: str):
         session = self.get_session(session_id)
         if session:
-            event = {"agent": agent, "type": type, "content": content}
+            event = {"agent": agent, "type": event_type, "content": content}
             session.workspace["events"].append(event)
             await session.queue.put(event)
 

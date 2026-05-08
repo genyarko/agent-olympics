@@ -121,7 +121,7 @@ Agents read from the workspace and append to it. They never call each other dire
 
 ---
 
-## Phase 3 — Multimodal inputs (5 hours, day 2)
+## Phase 3 — Multimodal inputs (5 hours, day 2) - to be reviewed by claude
 
 **Goal:** Real input handling — PDFs, images, URLs — feeding into the workspace before agents run.
 

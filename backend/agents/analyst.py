@@ -1,36 +1,19 @@
-import os
-import asyncio
 import logging
-from google import genai
 from session_manager import manager
+from agents.utils import get_prompt, get_vertex_client
 
 logger = logging.getLogger(__name__)
 
 async def run_analyst(session_id: str, prompt: str):
     logger.info(f"Starting Analyst agent for session {session_id}")
-    project = os.getenv("GOOGLE_CLOUD_PROJECT")
-    location = os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1")
-    if location == "global":
-        location = "us-central1"
-    
-    client = genai.Client(
-        vertexai=True,
-        project=project,
-        location=location
-    )
-
-    system_instruction = (
-        "You are the Lead Analyst in a high-stakes M&A war room. "
-        "Your goal is to evaluate the business model, financials, and market fit of a target company. "
-        "Be professional, data-driven, and thorough. "
-        "Stream your reasoning and findings as you work."
-    )
+    client = get_vertex_client()
+    system_instruction = get_prompt("analyst")
 
     await manager.emit_event(session_id, "analyst", "status", "starting")
 
     try:
         response_stream = await client.aio.models.generate_content_stream(
-            model='gemini-2.5-flash',
+            model='gemini-2.5-pro',
             contents=prompt,
             config={'system_instruction': system_instruction},
         )

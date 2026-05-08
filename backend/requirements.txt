@@ -4,3 +4,7 @@ python-dotenv
 google-genai
 pydantic
 python-multipart
+pymupdf
+beautifulsoup4
+trafilatura
+httpx
