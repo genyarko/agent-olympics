@@ -28,7 +28,7 @@ class ExecutiveBrief(BaseModel):
 
 async def run_synthesizer(session_id: str):
     logger.info(f"Starting Synthesizer agent for session {session_id}")
-    session = manager.get_session(session_id)
+    session = await manager.get_session(session_id)
     if not session:
         logger.error(f"Session {session_id} not found")
         return
@@ -77,10 +77,15 @@ async def run_synthesizer(session_id: str):
         )
 
         brief_data = response.parsed
-        session.workspace["synthesis"] = brief_data.model_dump()
+        
+        # Fetch fresh session to avoid overwriting events emitted during LLM call
+        session = await manager.get_session(session_id)
+        if session:
+            session.workspace["synthesis"] = brief_data.model_dump()
+            await manager.save_session(session)
 
-        # Emit the brief as a final event content
-        await manager.emit_event(session_id, "synthesizer", "brief", json.dumps(session.workspace["synthesis"]))
+            # Emit the brief as a final event content
+            await manager.emit_event(session_id, "synthesizer", "brief", json.dumps(session.workspace["synthesis"]))
 
         await manager.emit_event(session_id, "synthesizer", "status", "done")
         logger.info(f"Synthesizer agent finished for session {session_id}")

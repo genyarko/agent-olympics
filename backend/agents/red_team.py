@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 
 async def run_red_team(session_id: str):
     logger.info(f"Starting Red Team agent for session {session_id}")
-    session = manager.get_session(session_id)
+    session = await manager.get_session(session_id)
     if not session:
         logger.error(f"Session {session_id} not found")
         return
@@ -45,7 +45,11 @@ async def run_red_team(session_id: str):
                 full_critique += chunk.text
                 await manager.emit_event(session_id, "red_team", "thought", chunk.text)
 
-        session.workspace["red_team_critique"] = full_critique
+        # Fetch fresh session to avoid overwriting events emitted during LLM call
+        session = await manager.get_session(session_id)
+        if session:
+            session.workspace["red_team_critique"] = full_critique
+            await manager.save_session(session)
 
         await manager.emit_event(session_id, "red_team", "status", "done")
         logger.info(f"Red Team agent finished for session {session_id}")

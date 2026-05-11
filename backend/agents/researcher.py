@@ -53,22 +53,13 @@ async def search_tavily(query: str) -> str:
 
 async def run_researcher(session_id: str, topic: str):
     logger.info(f"Starting Researcher agent for session {session_id}")
+    session = await manager.get_session(session_id)
     client = get_gemini_client()
     system_instruction = get_prompt("researcher")
 
     await manager.emit_event(session_id, "researcher", "status", "starting")
 
     try:
-        # Initial thought about research strategy
-        prompt = f"Develop a research strategy and perform initial research on: {topic}. Use the search tool to find relevant information."
-        
-        # In a real tool-calling scenario, we'd use Gemini's tool support.
-        # For the hackathon, we'll simulate the tool call or just do one big search if we want to be fast.
-        # Let's try to do it properly with tool definitions if the SDK supports it easily.
-        
-        # Simplified for now: Agent thinks, then we perform a search based on its first thought, then it synthesizes.
-        # Actually, let's just use Gemini to generate a search query, run it, then let it synthesize.
-        
         await manager.emit_event(session_id, "researcher", "thought", f"Deciding search strategy for {topic}...")
         
         # Step 1: Generate search query
@@ -84,12 +75,32 @@ async def run_researcher(session_id: str, topic: str):
         # Step 2: Perform search
         search_results = await search_tavily(search_query)
         
-        # Step 3: Synthesize
+        # Step 3: Synthesize with multimodal capabilities if images exist
         await manager.emit_event(session_id, "researcher", "thought", "Synthesizing research findings...")
         
+        contents = [f"Based on these search results, provide a concise summary of findings for {topic}:\n\n{search_results}"]
+        
+        # Load images if any
+        images = session.workspace.get("inputs", {}).get("images", []) if session else []
+        image_data = []
+        for img in images:
+            storage_key = img.get("storage_key")
+            if storage_key and storage_key != "local_or_unconfigured" and storage_key != "error":
+                data = await manager.download_artifact_from_r2(storage_key)
+                if data:
+                    image_data.append({"filename": img.get("filename"), "data": data})
+
+        if image_data:
+            contents[0] += "\n\nAdditionally, please analyze the following visual assets provided in the workspace context."
+            for img in image_data:
+                contents.append({
+                    "mime_type": "image/jpeg",
+                    "data": img["data"]
+                })
+
         response_stream = await client.aio.models.generate_content_stream(
-            model='gemini-2.5-flash',
-            contents=f"Based on these search results, provide a concise summary of findings for {topic}:\n\n{search_results}",
+            model='gemini-3.1-pro', # Use Gemini Pro 3.1 for advanced multimodal reasoning as per Phase 3 spec
+            contents=contents,
             config={'system_instruction': system_instruction},
         )
 
@@ -99,12 +110,13 @@ async def run_researcher(session_id: str, topic: str):
                 full_findings += chunk.text
                 await manager.emit_event(session_id, "researcher", "thought", chunk.text)
 
-        session = manager.get_session(session_id)
+        session = await manager.get_session(session_id)
         if session:
             session.workspace["research_findings"].append({
                 "topic": topic,
                 "content": full_findings
             })
+            await manager.save_session(session)
 
         await manager.emit_event(session_id, "researcher", "status", "done")
         logger.info(f"Researcher agent finished for session {session_id}")

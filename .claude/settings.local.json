@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m py_compile session_manager.py agents/utils.py agents/orchestrator.py agents/researcher.py agents/analyst.py agents/red_team.py agents/synthesizer.py)"
+    ]
+  }
+}

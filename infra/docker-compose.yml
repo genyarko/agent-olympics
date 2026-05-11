@@ -5,6 +5,22 @@ services:
       - "8000:8000"
     env_file:
       - ../backend/.env
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-boardroom}:${POSTGRES_PASSWORD:-boardroom_password}@postgres:5432/${POSTGRES_DB:-boardroom}
+    depends_on:
+      - postgres
+    restart: always
+
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-boardroom}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-boardroom_password}
+      POSTGRES_DB: ${POSTGRES_DB:-boardroom}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
     restart: always
 
   frontend:
@@ -31,3 +47,4 @@ services:
 volumes:
   caddy_data:
   caddy_config:
+  pgdata:

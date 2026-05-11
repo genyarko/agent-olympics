@@ -24,9 +24,10 @@ async def run_analyst(session_id: str, prompt: str):
                 full_analysis += chunk.text
                 await manager.emit_event(session_id, "analyst", "thought", chunk.text)
 
-        session = manager.get_session(session_id)
+        session = await manager.get_session(session_id)
         if session:
             session.workspace["analysis"] = full_analysis
+            await manager.save_session(session)
 
         await manager.emit_event(session_id, "analyst", "status", "done")
         logger.info(f"Analyst agent finished for session {session_id}")

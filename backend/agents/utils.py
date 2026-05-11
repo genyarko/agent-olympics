@@ -1,5 +1,6 @@
 import os
 from google import genai
+from google.genai.types import HttpOptions, ResourceScope
 
 
 def get_prompt(agent_name: str) -> str:
@@ -10,9 +11,17 @@ def get_prompt(agent_name: str) -> str:
 
 def get_gemini_client() -> genai.Client:
     api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    proxy_url = os.getenv("BOARDROOM_PROXY_URL", "http://127.0.0.1:8000/proxy")
+    
     if api_key:
         # Use Google AI Studio (Generative AI API) which supports API Keys
-        return genai.Client(api_key=api_key)
+        if proxy_url:
+            return genai.Client(
+                api_key=api_key,
+                http_options=HttpOptions(base_url=proxy_url, api_version="v1beta"),
+                vertexai=False
+            )
+        return genai.Client(api_key=api_key, vertexai=False)
 
     project = os.getenv("GOOGLE_CLOUD_PROJECT")
     location = os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1")
@@ -21,6 +30,19 @@ def get_gemini_client() -> genai.Client:
     
     # Use Vertex AI (Enterprise) which requires Service Account / ADC
     if project:
+        if proxy_url:
+            # Note: For Vertex AI with custom base url, google-genai behaves differently.
+            # We need to construct the Vertex endpoint proxy URL.
+            vertex_proxy = f"{proxy_url}/vertex/{location}/{project}"
+            return genai.Client(
+                vertexai=True, 
+                project=project, 
+                location=location,
+                http_options=HttpOptions(
+                    base_url=vertex_proxy,
+                    base_url_resource_scope=ResourceScope.COLLECTION
+                )
+            )
         return genai.Client(vertexai=True, project=project, location=location)
     
     raise ValueError("No authentication found. Set GEMINI_API_KEY for AI Studio or GOOGLE_CLOUD_PROJECT for Vertex AI.")
@@ -46,4 +68,5 @@ def workspace_for_synthesis(workspace: dict) -> dict:
         "research_findings": workspace.get("research_findings", []),
         "analysis": workspace.get("analysis", ""),
         "red_team_critique": workspace.get("red_team_critique", ""),
+        "conflict_matrix": workspace.get("conflict_matrix", ""),
     }
