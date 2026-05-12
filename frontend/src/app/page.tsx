@@ -44,14 +44,35 @@ type Brief = {
 type VerificationReport = {
   integrity_score: number;
   total_claims_checked: number;
+  verified_count?: number;
+  plausible_count?: number;
+  flagged_count?: number;
+  hallucination_count?: number;
+  note?: string;
   claims: {
     claim: string;
     type: string;
     score: number;
+    integrity_score?: number;
     status: string;
+    consistency?: string;
+    reasoning?: string;
     best_source_snippet: string;
   }[];
 };
+
+function claimStatusClasses(status: string): string {
+  switch (status) {
+    case "VERIFIED":
+      return "bg-teal-100 text-teal-700";
+    case "PLAUSIBLE":
+      return "bg-amber-100 text-amber-700";
+    case "HALLUCINATION":
+      return "bg-rose-200 text-rose-800";
+    default: // FLAGGED / UNVERIFIED / anything else
+      return "bg-rose-100 text-rose-700";
+  }
+}
 
 const AGENTS = [
   {
@@ -124,6 +145,7 @@ export default function Home() {
 
   const [isDemoMode, setIsDemoMode] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  const [uploadingType, setUploadingType] = useState<"document" | "image" | null>(null);
 
   const removeFile = (id: string) => {
     setUploadedFiles((prev) => prev.filter((f) => f.id !== id));
@@ -186,11 +208,14 @@ export default function Home() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    setUploadingType(type);
     const fileId = Math.random().toString(36).substring(7);
 
     if (isDemoMode) {
+      await new Promise((r) => setTimeout(r, 800)); // Simulate delay for demo
       setUploadedFiles((prev) => [...prev, { name: file.name, id: fileId }]);
       if (e.target) e.target.value = "";
+      setUploadingType(null);
       return;
     }
 
@@ -212,6 +237,7 @@ export default function Home() {
       alert("Failed to upload file");
     } finally {
       if (e.target) e.target.value = "";
+      setUploadingType(null);
     }
   };
 
@@ -556,25 +582,38 @@ export default function Home() {
 
                 <div className="grid grid-cols-2 gap-2">
                   <div
-                    onClick={() => fileInputRef.current?.click()}
-                    className="p-3 border border-dashed border-slate-200 rounded-lg bg-slate-50 flex flex-col items-center justify-center gap-2 cursor-pointer hover:bg-slate-100 transition-colors text-center group"
+                    onClick={() => !uploadingType && fileInputRef.current?.click()}
+                    className={cn(
+                      "p-3 border border-dashed border-slate-200 rounded-lg bg-slate-50 flex flex-col items-center justify-center gap-2 transition-colors text-center group",
+                      uploadingType === "document" ? "opacity-70 cursor-wait" : "cursor-pointer hover:bg-slate-100"
+                    )}
                   >
-                    <Upload className="w-5 h-5 text-slate-400 group-hover:text-blue-500 transition-colors" />
+                    {uploadingType === "document" ? (
+                      <div className="w-5 h-5 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
+                    ) : (
+                      <Upload className="w-5 h-5 text-slate-400 group-hover:text-blue-500 transition-colors" />
+                    )}
                     <span className="text-[10px] font-medium text-slate-500">
-                      Upload Doc
+                      {uploadingType === "document" ? "Uploading..." : "Upload Doc"}
                     </span>
                   </div>
                   <div
-                    onClick={() => imageInputRef.current?.click()}
-                    className="p-3 border border-dashed border-slate-200 rounded-lg bg-slate-50 flex flex-col items-center justify-center gap-2 cursor-pointer hover:bg-slate-100 transition-colors text-center group"
+                    onClick={() => !uploadingType && imageInputRef.current?.click()}
+                    className={cn(
+                      "p-3 border border-dashed border-slate-200 rounded-lg bg-slate-50 flex flex-col items-center justify-center gap-2 transition-colors text-center group",
+                      uploadingType === "image" ? "opacity-70 cursor-wait" : "cursor-pointer hover:bg-slate-100"
+                    )}
                   >
-                    <Upload className="w-5 h-5 text-slate-400 group-hover:text-blue-500 transition-colors" />
+                    {uploadingType === "image" ? (
+                      <div className="w-5 h-5 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
+                    ) : (
+                      <Upload className="w-5 h-5 text-slate-400 group-hover:text-blue-500 transition-colors" />
+                    )}
                     <span className="text-[10px] font-medium text-slate-500">
-                      Upload Image
+                      {uploadingType === "image" ? "Uploading..." : "Upload Image"}
                     </span>
                   </div>
                 </div>
-
                 {uploadedFiles.map((file, i) => (
                   <div
                     key={file.id}
@@ -901,7 +940,7 @@ export default function Home() {
                   {/* Verification Report */}
                   {verificationReport && (
                     <section className="p-8 bg-teal-50/50 rounded-2xl border border-teal-100 print:bg-white print:border-slate-200">
-                      <div className="flex items-center justify-between mb-6">
+                      <div className="flex items-center justify-between mb-4">
                         <h4 className="text-sm font-bold text-teal-700 uppercase tracking-widest flex items-center gap-2">
                           <CheckCircle2 className="w-5 h-5" />
                           Verification Report
@@ -925,6 +964,39 @@ export default function Home() {
                         </div>
                       </div>
 
+                      <div className="flex flex-wrap gap-2 mb-6 text-[10px] font-bold uppercase tracking-wide">
+                        <span className="px-2 py-1 rounded-full bg-slate-100 text-slate-500">
+                          {verificationReport.total_claims_checked} claims checked
+                        </span>
+                        {!!verificationReport.verified_count && (
+                          <span className="px-2 py-1 rounded-full bg-teal-100 text-teal-700">
+                            {verificationReport.verified_count} verified
+                          </span>
+                        )}
+                        {!!verificationReport.plausible_count && (
+                          <span className="px-2 py-1 rounded-full bg-amber-100 text-amber-700">
+                            {verificationReport.plausible_count} plausible
+                          </span>
+                        )}
+                        {!!verificationReport.flagged_count && (
+                          <span className="px-2 py-1 rounded-full bg-rose-100 text-rose-700">
+                            {verificationReport.flagged_count} flagged for review
+                          </span>
+                        )}
+                        {!!verificationReport.hallucination_count && (
+                          <span className="px-2 py-1 rounded-full bg-rose-200 text-rose-800">
+                            {verificationReport.hallucination_count} possible hallucination
+                            {verificationReport.hallucination_count === 1 ? "" : "s"}
+                          </span>
+                        )}
+                      </div>
+
+                      {verificationReport.note && (
+                        <p className="text-xs text-slate-500 italic mb-4">
+                          {verificationReport.note}
+                        </p>
+                      )}
+
                       <div className="space-y-4">
                         {verificationReport.claims.map((claim, i) => (
                           <div
@@ -934,23 +1006,27 @@ export default function Home() {
                             <div className="flex items-start justify-between gap-4">
                               <p className="text-sm text-slate-700 font-medium">
                                 {claim.claim}
+                                <span className="ml-2 text-[10px] font-bold uppercase text-slate-300">
+                                  {claim.type}
+                                </span>
                               </p>
                               <span
                                 className={cn(
                                   "text-[10px] uppercase font-bold px-2 py-1 rounded-full whitespace-nowrap shrink-0",
-                                  claim.status === "VERIFIED"
-                                    ? "bg-teal-100 text-teal-700"
-                                    : claim.status === "PLAUSIBLE"
-                                      ? "bg-amber-100 text-amber-700"
-                                      : "bg-rose-100 text-rose-700",
+                                  claimStatusClasses(claim.status),
                                 )}
                               >
                                 {claim.status} ({claim.score}%)
                               </span>
                             </div>
+                            {claim.reasoning && claim.status !== "VERIFIED" && (
+                              <p className="text-xs text-slate-500">
+                                {claim.reasoning}
+                              </p>
+                            )}
                             {claim.status !== "VERIFIED" &&
                               claim.best_source_snippet !== "None" && (
-                                <div className="mt-2 text-xs text-slate-500 bg-slate-50 p-2 rounded border border-slate-100">
+                                <div className="mt-1 text-xs text-slate-500 bg-slate-50 p-2 rounded border border-slate-100">
                                   <span className="font-bold text-slate-400 block mb-1">
                                     Closest Source Match:
                                   </span>
