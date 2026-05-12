@@ -2,11 +2,11 @@ import logging
 import os
 import json
 import asyncio
-from typing import List
 import httpx
 from fastapi import FastAPI, BackgroundTasks, HTTPException, Request, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
+from starlette.background import BackgroundTask
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
@@ -26,8 +26,12 @@ load_dotenv()
 
 app = FastAPI(title="Boardroom API")
 
-# Global HTTP client for proxy
+# Global HTTP client used by the Lobster Trap proxy (keeps connections warm).
 http_client: httpx.AsyncClient = None
+
+# Hop-by-hop / connection-management headers we must not forward verbatim.
+_STRIP_RESPONSE_HEADERS = {"transfer-encoding", "connection", "keep-alive", "proxy-authenticate", "proxy-authorization", "te", "trailers", "upgrade"}
+
 
 @app.on_event("startup")
 async def startup_event():
@@ -35,11 +39,14 @@ async def startup_event():
     http_client = httpx.AsyncClient(timeout=None)
     await manager.init_db()
 
+
 @app.on_event("shutdown")
 async def shutdown_event():
     global http_client
     if http_client:
         await http_client.aclose()
+    await manager.close()
+
 
 allowed_origins = [
     o.strip() for o in os.getenv("ALLOWED_ORIGINS", "*").split(",") if o.strip()
@@ -53,8 +60,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 class UrlInput(BaseModel):
     url: str
+
 
 @app.post("/sessions")
 async def create_session():
@@ -62,25 +71,26 @@ async def create_session():
     logger.info(f"Created session: {session_id}")
     return {"session_id": session_id}
 
+
 @app.post("/sessions/{session_id}/inputs/document")
 async def upload_document(session_id: str, file: UploadFile = File(...)):
     session = await manager.get_session(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
-    
+
     content = await file.read()
-    filename_lower = file.filename.lower()
-    
-    # Upload to R2 (cold storage)
+    filename_lower = (file.filename or "").lower()
+
+    # Upload to R2 (cold storage); no-op if R2 isn't configured.
     await manager.upload_artifact_to_r2(session_id, file.filename, content)
-    
+
     if filename_lower.endswith(".pdf"):
         text = await process_pdf(content)
     elif filename_lower.endswith(".docx"):
         text = await process_docx(content)
     else:
         text = content.decode("utf-8", errors="ignore")
-    
+
     session.workspace["inputs"]["documents"].append({
         "filename": file.filename,
         "content": text
@@ -88,19 +98,19 @@ async def upload_document(session_id: str, file: UploadFile = File(...)):
     await manager.save_session(session)
     return {"status": "Document uploaded"}
 
+
 @app.post("/sessions/{session_id}/inputs/image")
 async def upload_image(session_id: str, file: UploadFile = File(...)):
     session = await manager.get_session(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
-    
+
     content = await file.read()
-    
-    # Upload to R2 (cold storage)
+
     storage_key = await manager.upload_artifact_to_r2(session_id, file.filename, content)
-    
-    description = await process_image(content)
-    
+
+    description = await process_image(content, file.filename)
+
     session.workspace["inputs"]["images"].append({
         "filename": file.filename,
         "description": description,
@@ -109,12 +119,13 @@ async def upload_image(session_id: str, file: UploadFile = File(...)):
     await manager.save_session(session)
     return {"status": "Image uploaded"}
 
+
 @app.post("/sessions/{session_id}/inputs/url")
 async def add_url(session_id: str, url_input: UrlInput):
     session = await manager.get_session(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
-    
+
     content = await process_url(url_input.url)
     session.workspace["inputs"]["urls"].append({
         "url": url_input.url,
@@ -123,29 +134,30 @@ async def add_url(session_id: str, url_input: UrlInput):
     await manager.save_session(session)
     return {"status": "URL added"}
 
+
 @app.post("/sessions/{session_id}/inputs/text")
 async def add_text(session_id: str, text_input: dict):
     session = await manager.get_session(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
-    
+
     text = text_input.get("text", "")
     if text:
-        # Prepend to raw_text if it already exists, or just set it
         if session.workspace["inputs"]["raw_text"]:
             session.workspace["inputs"]["raw_text"] += f"\n\n{text}"
         else:
             session.workspace["inputs"]["raw_text"] = text
         await manager.save_session(session)
-            
+
     return {"status": "Text added"}
+
 
 @app.post("/sessions/{session_id}/demo")
 async def load_demo(session_id: str):
     session = await manager.get_session(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
-    
+
     # Load TargetCo Demo Scenario
     session.workspace["inputs"]["documents"].append({
         "filename": "TargetCo_Pitch_Deck.pdf",
@@ -160,8 +172,9 @@ async def load_demo(session_id: str):
         "content": "TargetCo recently raised $80M in Series C funding led by VentureFront. Valuation was $1.2B post-money."
     })
     await manager.save_session(session)
-    
+
     return {"status": "Demo scenario loaded"}
+
 
 @app.post("/sessions/{session_id}/analyze")
 async def analyze(session_id: str, background_tasks: BackgroundTasks):
@@ -169,10 +182,11 @@ async def analyze(session_id: str, background_tasks: BackgroundTasks):
     if not session:
         logger.warning(f"Session {session_id} not found for analysis")
         raise HTTPException(status_code=404, detail="Session not found")
-    
+
     logger.info(f"Triggering Orchestrator for session: {session_id}")
     background_tasks.add_task(run_orchestrator, session_id)
     return {"status": "Analysis started"}
+
 
 @app.get("/sessions/{session_id}/stream")
 async def stream(session_id: str, request: Request):
@@ -181,112 +195,88 @@ async def stream(session_id: str, request: Request):
         logger.warning(f"Session {session_id} not found for stream")
         raise HTTPException(status_code=404, detail="Session not found")
 
+    queue = session.queue
+
     async def event_generator():
         try:
             while True:
-                # Check if client is still connected
                 if await request.is_disconnected():
                     logger.info(f"Client disconnected from session {session_id}")
                     break
-                
                 try:
-                    # Wait for an event with a timeout to check disconnection periodically
-                    event = await asyncio.wait_for(session.queue.get(), timeout=1.0)
+                    event = await asyncio.wait_for(queue.get(), timeout=1.0)
                     yield f"data: {json.dumps(event)}\n\n"
                 except asyncio.TimeoutError:
-                    # Send a keep-alive comment
                     yield ": keep-alive\n\n"
                     continue
-                    
         except Exception as e:
             logger.error(f"Error in stream for session {session_id}: {e}")
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
+
 @app.get("/sessions/{session_id}/trace")
 async def get_session_trace(session_id: str):
+    session = await manager.get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
     trace = await manager.get_trace(session_id)
-    if not trace:
-        raise HTTPException(status_code=404, detail="Trace not found for session")
     return {"session_id": session_id, "trace": trace}
+
 
 @app.get("/")
 async def root():
     return {"message": "Boardroom API is live", "status": "ok"}
 
 
-import httpx
-from starlette.background import BackgroundTask
-
 @app.api_route("/proxy/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"])
 async def proxy_llm(path: str, request: Request):
-    """Lobster Trap Security Proxy."""
+    """Lobster Trap security proxy — inspects every outbound LLM request, then forwards it."""
     body = await request.body()
     body_str = body.decode("utf-8", errors="ignore")
-    
-    # Pass request body through centralized Policy Engine
-    is_valid, violation_type, detail_msg = policy_engine.scan_request(body_str)
-    if not is_valid:
-        raise HTTPException(status_code=400, detail=detail_msg)
 
-    # Forward the request
+    scan = policy_engine.scan_request(body_str)
+    if not scan.allowed:
+        raise HTTPException(status_code=400, detail=scan.detail)
+
+    # Build forwarded headers (auth + content type + any extra x-goog-* headers).
     headers = {}
-    api_key = request.headers.get("x-goog-api-key") or os.getenv("GEMINI_API_KEY")
+    api_key = request.headers.get("x-goog-api-key") or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
     if api_key:
         headers["x-goog-api-key"] = api_key
-        
-    if "Authorization" in request.headers:
-        headers["Authorization"] = request.headers["Authorization"]
-    elif "authorization" in request.headers:
+    if "authorization" in request.headers:
         headers["Authorization"] = request.headers["authorization"]
-        
     for k, v in request.headers.items():
-        if k.lower().startswith("x-goog-") and k.lower() != "x-goog-api-key":
+        kl = k.lower()
+        if kl.startswith("x-goog-") and kl != "x-goog-api-key":
             headers[k] = v
-            
-    if "Content-Type" in request.headers:
-        headers["Content-Type"] = request.headers["Content-Type"]
+    if "content-type" in request.headers:
+        headers["Content-Type"] = request.headers["content-type"]
 
     if path.startswith("vertex/"):
-        # vertex/location/project/path...
+        # vertex/<location>/<project>/<rest...>
         parts = path.split("/")
-        location = parts[1]
-        project = parts[2]
-        rest = "/".join(parts[3:])
-        base_url = f"https://{location}-aiplatform.googleapis.com"
-        target_url = f"{base_url}/v1beta1/projects/{project}/locations/{location}/{rest}"
+        location, project, rest = parts[1], parts[2], "/".join(parts[3:])
+        target_url = f"https://{location}-aiplatform.googleapis.com/v1beta1/projects/{project}/locations/{location}/{rest}"
     else:
-        # Default AI Studio
-        base_url = "https://generativelanguage.googleapis.com"
-        # The path might already contain v1beta/...
-        target_url = f"{base_url}/{path}"
+        target_url = f"https://generativelanguage.googleapis.com/{path}"
 
     req = http_client.build_request(
         request.method,
         target_url,
         content=body,
         headers=headers,
-        params=request.query_params
+        params=request.query_params,
     )
-    
-    # We do not use stream=True with BackgroundTask because the global client manages connection pooling.
-    # Instead, we yield chunks manually to stream back the response.
-    # However, httpx AsyncClient handles stream=True natively when used in a context manager, 
-    # but since we want to return a StreamingResponse, we can yield from an async generator.
-    
-    async def stream_response():
-        async with http_client.stream(request.method, target_url, content=body, headers=headers, params=request.query_params) as resp:
-            async for chunk in resp.aiter_raw():
-                yield chunk
-                
-    # To get headers and status code we need to initiate the request, which is tricky to do 
-    # cleanly while also streaming the body without a context block holding open the connection.
-    # A cleaner pattern for FastAPI proxying with httpx:
     resp = await http_client.send(req, stream=True)
-    
+
+    out_headers = {k: v for k, v in resp.headers.items() if k.lower() not in _STRIP_RESPONSE_HEADERS}
+    if scan.warnings:
+        out_headers["x-lobstertrap-warnings"] = ",".join(scan.warnings)
+
     return StreamingResponse(
-        resp.aiter_raw(), 
-        status_code=resp.status_code, 
-        headers=dict(resp.headers),
-        background=BackgroundTask(resp.aclose)
+        resp.aiter_raw(),
+        status_code=resp.status_code,
+        headers=out_headers,
+        background=BackgroundTask(resp.aclose),
     )

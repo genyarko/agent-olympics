@@ -2,8 +2,12 @@ import asyncio
 import logging
 import json
 import re
+from typing import List
+
+from pydantic import BaseModel, Field
+
 from session_manager import manager
-from agents.utils import get_prompt, get_gemini_client
+from agents.utils import get_prompt, get_gemini_client, FLASH_MODEL
 from agents.researcher import run_researcher
 from agents.analyst import run_analyst
 from agents.red_team import run_red_team
@@ -32,9 +36,6 @@ def _clean_target_name(raw: str) -> str:
     return name
 
 
-from pydantic import BaseModel, Field
-from typing import List
-
 class Conflict(BaseModel):
     issue: str
     analyst_position: str
@@ -43,8 +44,10 @@ class Conflict(BaseModel):
     red_team_confidence: int = Field(description="Confidence score (1-10) based on grounding depth", ge=1, le=10)
     resolution_recommendation: str
 
+
 class ConflictResolutionMatrix(BaseModel):
     conflicts: List[Conflict]
+
 
 async def _detect_conflicts(client, analysis: str, critique: str) -> str:
     """Compare Analyst output against Red Team critique and return a Conflict Resolution Matrix."""
@@ -54,14 +57,15 @@ async def _detect_conflicts(client, analysis: str, critique: str) -> str:
         "Compare the Analyst's analysis with the Red Team's critique. "
         "Identify the points of disagreement between them. "
         "For each conflict, extract the issue, the Analyst's position, the Red Team's position, "
-        "and assign a confidence score (1-10) to each viewpoint based on grounding depth. "
+        "and assign a confidence score (1-10) to each viewpoint based on grounding depth "
+        "(how well each side's position is supported by concrete evidence vs. assumption). "
         "Also provide a resolution recommendation for the Synthesizer.\n\n"
         f"Analyst:\n{analysis}\n\n"
         f"Red Team:\n{critique}"
     )
     try:
         resp = await client.aio.models.generate_content(
-            model='gemini-2.5-flash',
+            model=FLASH_MODEL,
             contents=prompt,
             config={
                 'response_mime_type': 'application/json',
@@ -70,7 +74,7 @@ async def _detect_conflicts(client, analysis: str, critique: str) -> str:
         )
         if not resp.parsed or not resp.parsed.conflicts:
             return ""
-        
+
         # Format the matrix into a readable string
         matrix_str = "Conflict Resolution Matrix:\n"
         for i, c in enumerate(resp.parsed.conflicts, 1):
@@ -99,34 +103,34 @@ async def run_orchestrator(session_id: str):
     try:
         # Step 1: Parse inputs and extract facts
         await manager.emit_event(session_id, "orchestrator", "thought", "Parsing inputs and extracting key facts...")
-        
+
         inputs_summary = json.dumps(session.workspace["inputs"], indent=2)
-        
+
         facts_response = await client.aio.models.generate_content(
-            model='gemini-2.5-flash',
+            model=FLASH_MODEL,
             contents=f"Extract the most important facts from these inputs for an M&A analysis:\n\n{inputs_summary}",
             config={'system_instruction': system_instruction}
         )
-        
-        facts = facts_response.text
-        
+
+        facts = facts_response.text or ""
+
         # Fetch fresh session to avoid overwriting events emitted during LLM call
         session = await manager.get_session(session_id)
         if session:
             session.workspace["facts"] = facts
             await manager.save_session(session)
-            
+
         await manager.emit_event(session_id, "orchestrator", "thought", f"Extracted facts: {facts[:200]}...")
 
         # Step 2: Define a plan
         await manager.emit_event(session_id, "orchestrator", "thought", "Defining execution plan for specialized agents...")
-        
+
         # Step 3: Run Researcher and Analyst in parallel
         await manager.emit_event(session_id, "orchestrator", "thought", "Launching Researcher and Analyst agents in parallel.")
-        
+
         # Try to extract target name from facts
         name_extract = await client.aio.models.generate_content(
-            model='gemini-2.5-flash',
+            model=FLASH_MODEL,
             contents=f"What is the name of the target company in these facts? Return ONLY the company name, nothing else.\n\n{facts}",
         )
         target_name = _clean_target_name(name_extract.text if name_extract else "")
@@ -145,13 +149,13 @@ async def run_orchestrator(session_id: str):
         await manager.emit_event(session_id, "orchestrator", "thought", "Research and initial analysis complete. Launching Red Team for adversarial critique.")
         await run_red_team(session_id)
 
-        # Step 5: Conflict detection (real, not hardcoded)
+        # Step 5: Conflict detection (real, not hardcoded).
+        # IMPORTANT: refetch — `session` above predates the analyst/red-team writes.
         await manager.emit_event(session_id, "orchestrator", "thought", "Checking for conflicts between Analyst findings and Red Team critique...")
-        conflict = await _detect_conflicts(
-            client,
-            session.workspace.get("analysis", ""),
-            session.workspace.get("red_team_critique", ""),
-        )
+        session = await manager.get_session(session_id)
+        analysis = session.workspace.get("analysis", "") if session else ""
+        critique = session.workspace.get("red_team_critique", "") if session else ""
+        conflict = await _detect_conflicts(client, analysis, critique)
         if conflict:
             session = await manager.get_session(session_id)
             if session:

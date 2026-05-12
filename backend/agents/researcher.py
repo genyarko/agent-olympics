@@ -2,7 +2,7 @@ import os
 import logging
 import httpx
 from session_manager import manager
-from agents.utils import get_prompt, get_gemini_client
+from agents.utils import get_prompt, get_gemini_client, PRO_MODEL, FLASH_MODEL, sniff_image_mime
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +64,7 @@ async def run_researcher(session_id: str, topic: str):
         
         # Step 1: Generate search query
         search_query_response = await client.aio.models.generate_content(
-            model='gemini-2.5-flash',
+            model=FLASH_MODEL,
             contents=f"Generate a single effective search query to find news, filings, and competitor intel for: {topic}",
             config={'system_instruction': system_instruction}
         )
@@ -94,12 +94,12 @@ async def run_researcher(session_id: str, topic: str):
             contents[0] += "\n\nAdditionally, please analyze the following visual assets provided in the workspace context."
             for img in image_data:
                 contents.append({
-                    "mime_type": "image/jpeg",
+                    "mime_type": sniff_image_mime(img["data"], img.get("filename")),
                     "data": img["data"]
                 })
 
         response_stream = await client.aio.models.generate_content_stream(
-            model='gemini-3.1-pro', # Use Gemini Pro 3.1 for advanced multimodal reasoning as per Phase 3 spec
+            model=PRO_MODEL,  # advanced multimodal reasoning
             contents=contents,
             config={'system_instruction': system_instruction},
         )

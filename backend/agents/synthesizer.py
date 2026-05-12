@@ -3,7 +3,7 @@ import json
 from pydantic import BaseModel, Field
 from typing import List
 from session_manager import manager
-from agents.utils import get_prompt, get_gemini_client, workspace_for_synthesis
+from agents.utils import get_prompt, get_gemini_client, workspace_for_synthesis, PRO_MODEL
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +51,7 @@ async def run_synthesizer(session_id: str):
         # Stream a short reasoning pass first so the panel shows live work
         # before the schema-constrained call returns.
         reasoning_stream = await client.aio.models.generate_content_stream(
-            model='gemini-2.5-pro',
+            model=PRO_MODEL,
             contents=(
                 "Briefly walk through how you will weigh the Analyst's findings "
                 "against the Red Team's critique to produce the recommendation. "
@@ -67,7 +67,7 @@ async def run_synthesizer(session_id: str):
         await manager.emit_event(session_id, "synthesizer", "thought", "Producing structured brief...")
 
         response = await client.aio.models.generate_content(
-            model='gemini-2.5-pro',
+            model=PRO_MODEL,
             contents=prompt,
             config={
                 'system_instruction': system_instruction,

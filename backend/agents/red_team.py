@@ -1,7 +1,7 @@
 import json
 import logging
 from session_manager import manager
-from agents.utils import get_prompt, get_gemini_client
+from agents.utils import get_prompt, get_gemini_client, PRO_MODEL
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +34,7 @@ async def run_red_team(session_id: str):
         )
 
         response_stream = await client.aio.models.generate_content_stream(
-            model='gemini-2.5-pro',
+            model=PRO_MODEL,
             contents=prompt,
             config={'system_instruction': system_instruction},
         )

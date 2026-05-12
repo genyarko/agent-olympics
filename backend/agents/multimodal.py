@@ -6,8 +6,7 @@ import os
 import logging
 import io
 from docx import Document
-from google import genai
-from agents.utils import get_gemini_client
+from agents.utils import get_gemini_client, FLASH_MODEL, sniff_image_mime
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +29,7 @@ async def process_pdf(file_bytes: bytes) -> str:
                 try:
                     prompt = "This page contains images, charts, or tables. Please describe them in detail, including any structured data."
                     response = await client.aio.models.generate_content(
-                        model='gemini-2.5-flash',
+                        model=FLASH_MODEL,
                         contents=[
                             prompt,
                             {
@@ -61,7 +60,7 @@ async def process_docx(file_bytes: bytes) -> str:
         logger.error(f"Error processing DOCX: {e}")
         return f"Error processing DOCX: {e}"
 
-async def process_image(image_bytes: bytes) -> str:
+async def process_image(image_bytes: bytes, filename: str | None = None) -> str:
     try:
         client = get_gemini_client()
 
@@ -72,11 +71,11 @@ async def process_image(image_bytes: bytes) -> str:
         )
 
         response = await client.aio.models.generate_content(
-            model='gemini-2.5-flash', # Use flash for vision tasks
+            model=FLASH_MODEL,  # Use flash for vision tasks
             contents=[
                 prompt,
                 {
-                    "mime_type": "image/jpeg", # Defaulting to jpeg, API usually auto-detects or handles it
+                    "mime_type": sniff_image_mime(image_bytes, filename),
                     "data": image_bytes
                 }
             ]
