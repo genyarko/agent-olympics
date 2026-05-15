@@ -33,8 +33,6 @@ def get_gemini_client() -> genai.Client:
 
     project = os.getenv("GOOGLE_CLOUD_PROJECT")
     location = os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1")
-    if location == "global":
-        location = "us-central1"
 
     # Use Vertex AI (Enterprise) which requires Service Account / ADC
     if project:

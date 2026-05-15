@@ -41,6 +41,9 @@ type Brief = {
   dissenting_views: string[];
 };
 
+type ClaimRole = "analyst-claim" | "red-team-rebuttal" | "external-context";
+type KnowledgeSupport = "SUPPORTED" | "DISPUTED" | "UNKNOWN" | null;
+
 type VerificationReport = {
   integrity_score: number;
   total_claims_checked: number;
@@ -52,12 +55,17 @@ type VerificationReport = {
   claims: {
     claim: string;
     type: string;
+    role?: ClaimRole;
     score: number;
+    match_confidence?: number;
+    verification_channel?: "source-grounding" | "knowledge-check";
+    knowledge_support?: KnowledgeSupport;
     integrity_score?: number;
     status: string;
     consistency?: string;
     reasoning?: string;
     best_source_snippet: string;
+    snippet_label?: string;
   }[];
 };
 
@@ -72,6 +80,46 @@ function claimStatusClasses(status: string): string {
     default: // FLAGGED / UNVERIFIED / anything else
       return "bg-rose-100 text-rose-700";
   }
+}
+
+function roleBadge(role?: ClaimRole): { label: string; classes: string; tooltip: string } | null {
+  switch (role) {
+    case "red-team-rebuttal":
+      return {
+        label: "Red Team Rebuttal",
+        classes: "bg-rose-50 text-rose-600 border border-rose-100",
+        tooltip:
+          "Verified against external reality, not the pitch. Contradicting the source is expected here.",
+      };
+    case "external-context":
+      return {
+        label: "External Context",
+        classes: "bg-indigo-50 text-indigo-600 border border-indigo-100",
+        tooltip:
+          "Real-world fact added for context. Checked against external knowledge, not the source document.",
+      };
+    case "analyst-claim":
+      return {
+        label: "Analyst Claim",
+        classes: "bg-emerald-50 text-emerald-600 border border-emerald-100",
+        tooltip: "Positive assertion grounded against the source material.",
+      };
+    default:
+      return null;
+  }
+}
+
+function channelLabel(claim: {
+  verification_channel?: "source-grounding" | "knowledge-check";
+  knowledge_support?: KnowledgeSupport;
+}): string {
+  if (claim.verification_channel === "knowledge-check") {
+    const support = claim.knowledge_support;
+    if (support === "SUPPORTED") return "Knowledge: supported";
+    if (support === "DISPUTED") return "Knowledge: disputed";
+    return "Knowledge: unknown";
+  }
+  return "Source match";
 }
 
 const AGENTS = [
@@ -998,45 +1046,77 @@ export default function Home() {
                       )}
 
                       <div className="space-y-4">
-                        {verificationReport.claims.map((claim, i) => (
-                          <div
-                            key={i}
-                            className="bg-white p-4 rounded-xl border border-teal-50 shadow-sm flex flex-col gap-2 print:border-slate-200"
-                          >
-                            <div className="flex items-start justify-between gap-4">
-                              <p className="text-sm text-slate-700 font-medium">
-                                {claim.claim}
-                                <span className="ml-2 text-[10px] font-bold uppercase text-slate-300">
-                                  {claim.type}
-                                </span>
-                              </p>
-                              <span
-                                className={cn(
-                                  "text-[10px] uppercase font-bold px-2 py-1 rounded-full whitespace-nowrap shrink-0",
-                                  claimStatusClasses(claim.status),
-                                )}
-                              >
-                                {claim.status} ({claim.score}%)
-                              </span>
-                            </div>
-                            {claim.reasoning && claim.status !== "VERIFIED" && (
-                              <p className="text-xs text-slate-500">
-                                {claim.reasoning}
-                              </p>
-                            )}
-                            {claim.status !== "VERIFIED" &&
-                              claim.best_source_snippet !== "None" && (
-                                <div className="mt-1 text-xs text-slate-500 bg-slate-50 p-2 rounded border border-slate-100">
-                                  <span className="font-bold text-slate-400 block mb-1">
-                                    Closest Source Match:
-                                  </span>
-                                  <p className="italic">
-                                    "{claim.best_source_snippet}"
+                        {verificationReport.claims.map((claim, i) => {
+                          const role = roleBadge(claim.role);
+                          const matchPct = claim.match_confidence ?? claim.score;
+                          const snippetHeader =
+                            claim.snippet_label ??
+                            (claim.role === "red-team-rebuttal"
+                              ? "Contradicted source phrase"
+                              : "Closest Source Match");
+                          return (
+                            <div
+                              key={i}
+                              className="bg-white p-4 rounded-xl border border-teal-50 shadow-sm flex flex-col gap-2 print:border-slate-200"
+                            >
+                              <div className="flex items-start justify-between gap-4">
+                                <div className="flex-1">
+                                  <p className="text-sm text-slate-700 font-medium">
+                                    {claim.claim}
                                   </p>
+                                  <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                      {claim.type}
+                                    </span>
+                                    {role && (
+                                      <span
+                                        title={role.tooltip}
+                                        className={cn(
+                                          "text-[10px] font-semibold px-1.5 py-0.5 rounded uppercase tracking-wide",
+                                          role.classes,
+                                        )}
+                                      >
+                                        {role.label}
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
+                                <div className="flex flex-col items-end gap-1 shrink-0">
+                                  <span
+                                    className={cn(
+                                      "text-[10px] uppercase font-bold px-2 py-1 rounded-full whitespace-nowrap",
+                                      claimStatusClasses(claim.status),
+                                    )}
+                                  >
+                                    {claim.status}
+                                  </span>
+                                  <span
+                                    className="text-[9px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-full whitespace-nowrap"
+                                    title="Confidence in the source match or knowledge check — separate from severity."
+                                  >
+                                    {channelLabel(claim)} · {matchPct}%
+                                  </span>
+                                </div>
+                              </div>
+                              {claim.reasoning && claim.status !== "VERIFIED" && (
+                                <p className="text-xs text-slate-500">
+                                  {claim.reasoning}
+                                </p>
                               )}
-                          </div>
-                        ))}
+                              {claim.status !== "VERIFIED" &&
+                                claim.best_source_snippet !== "None" && (
+                                  <div className="mt-1 text-xs text-slate-500 bg-slate-50 p-2 rounded border border-slate-100">
+                                    <span className="font-bold text-slate-400 block mb-1">
+                                      {snippetHeader}:
+                                    </span>
+                                    <p className="italic">
+                                      &quot;{claim.best_source_snippet}&quot;
+                                    </p>
+                                  </div>
+                                )}
+                            </div>
+                          );
+                        })}
                       </div>
                     </section>
                   )}

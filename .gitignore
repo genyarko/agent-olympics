@@ -30,3 +30,10 @@ infra/caddy_data/
 infra/caddy_config/
 .vercel
 .env*.local
+
+# Local Claude Code permissions / settings — contains per-machine secrets
+.claude/settings.local.json
+
+# Local operational scripts (SFTP deploys, SSH automation). Reference secrets
+# via env vars, but the targets and patterns are deployment-private.
+.deploy_*.py

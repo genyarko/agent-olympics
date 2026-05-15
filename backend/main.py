@@ -257,7 +257,8 @@ async def proxy_llm(path: str, request: Request):
         # vertex/<location>/<project>/<rest...>
         parts = path.split("/")
         location, project, rest = parts[1], parts[2], "/".join(parts[3:])
-        target_url = f"https://{location}-aiplatform.googleapis.com/v1beta1/projects/{project}/locations/{location}/{rest}"
+        host = "aiplatform.googleapis.com" if location == "global" else f"{location}-aiplatform.googleapis.com"
+        target_url = f"https://{host}/v1beta1/projects/{project}/locations/{location}/{rest}"
     else:
         target_url = f"https://generativelanguage.googleapis.com/{path}"
 

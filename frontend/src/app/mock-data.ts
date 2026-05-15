@@ -51,24 +51,24 @@ export const MOCK_EVENTS = [
   { agent: "verifier", type: "thought", content: "Extracted 6 claims. Grounding against 14 source passages…" },
   { agent: "verifier", type: "thought", content: "Running semantic grounding on 3 claim(s)…" },
   { agent: "verifier", type: "thought", content: "Checking internal and source consistency…" },
-  { agent: "verifier", type: "thought", content: "Verification complete. Integrity Score: 81/100 — 1 claim(s) flagged for human review (0 possible hallucination(s))." },
+  { agent: "verifier", type: "thought", content: "Verification complete. Integrity Score: 88/100 — 0 claim(s) flagged for human review (0 possible hallucination(s))." },
   {
     agent: "verifier",
     type: "verification_report",
     content: JSON.stringify({
-      integrity_score: 81,
+      integrity_score: 88,
       total_claims_checked: 6,
-      verified_count: 3,
-      plausible_count: 2,
-      flagged_count: 1,
+      verified_count: 5,
+      plausible_count: 1,
+      flagged_count: 0,
       hallucination_count: 0,
       claims: [
-        { claim: "TargetCo's ARR is $50M.", type: "QUANTITATIVE", score: 96, integrity_score: 92, status: "VERIFIED", consistency: "CONSISTENT", reasoning: "Direct textual match against source.", best_source_snippet: "Current ARR is $50M, growing at 40% YoY." },
-        { claim: "Gross margins are 78%.", type: "QUANTITATIVE", score: 91, integrity_score: 90, status: "VERIFIED", consistency: "CONSISTENT", reasoning: "Semantic grounding verdict: FULL.", best_source_snippet: "Gross margins are healthy at 78%." },
-        { claim: "Main competitors are LogiSmart and SupplyChainAI.", type: "FACTUAL", score: 94, integrity_score: 91, status: "VERIFIED", consistency: "CONSISTENT", reasoning: "Direct textual match against source.", best_source_snippet: "Main competitors are LogiSmart and SupplyChainAI." },
-        { claim: "Top 3 customers account for 45% of revenue.", type: "QUANTITATIVE", score: 72, integrity_score: 74, status: "PLAUSIBLE", consistency: "MINOR_CONCERN", reasoning: "Semantic grounding verdict: PARTIAL. | Consistency (MINOR_CONCERN): research notes ~28% for the single largest customer; the brief states 45% across the top three.", best_source_snippet: "High customer concentration: Top 3 customers represent 45% of total revenue." },
-        { claim: "Deal structure is $200M cash plus $100M stock with a 3-year earn-out.", type: "FACTUAL", score: 84, integrity_score: 80, status: "PLAUSIBLE", consistency: "CONSISTENT", reasoning: "Semantic grounding verdict: PARTIAL.", best_source_snippet: "Deal structure is $200M cash + $100M stock. Earn-out over 3 years based on EBITDA targets." },
-        { claim: "TargetCo has expanded into the European market.", type: "FACTUAL", score: 36, integrity_score: 47, status: "FLAGGED", consistency: "INCONSISTENT", reasoning: "Semantic grounding verdict: NONE. | Consistency (INCONSISTENT): not stated in the provided source material.", best_source_snippet: "TargetCo recently raised $80M in Series C funding led by VentureFront." }
+        { claim: "TargetCo's ARR is $50M.", type: "QUANTITATIVE", role: "analyst-claim", score: 96, match_confidence: 96, verification_channel: "source-grounding", integrity_score: 92, status: "VERIFIED", consistency: "CONSISTENT", reasoning: "Direct textual match against source.", best_source_snippet: "Current ARR is $50M, growing at 40% YoY.", snippet_label: "Closest Source Match" },
+        { claim: "Gross margins are 78%.", type: "QUANTITATIVE", role: "analyst-claim", score: 91, match_confidence: 91, verification_channel: "source-grounding", integrity_score: 90, status: "VERIFIED", consistency: "CONSISTENT", reasoning: "Semantic grounding verdict: FULL.", best_source_snippet: "Gross margins are healthy at 78%.", snippet_label: "Closest Source Match" },
+        { claim: "Main competitors are LogiSmart and SupplyChainAI.", type: "FACTUAL", role: "analyst-claim", score: 94, match_confidence: 94, verification_channel: "source-grounding", integrity_score: 91, status: "VERIFIED", consistency: "CONSISTENT", reasoning: "Direct textual match against source.", best_source_snippet: "Main competitors are LogiSmart and SupplyChainAI.", snippet_label: "Closest Source Match" },
+        { claim: "Top 3 customers account for 45% of revenue.", type: "QUANTITATIVE", role: "red-team-rebuttal", score: 91, match_confidence: 91, verification_channel: "knowledge-check", knowledge_support: "SUPPORTED", integrity_score: 88, status: "VERIFIED", consistency: "CONSISTENT", reasoning: "Supported by external knowledge: research notes confirm heavy top-customer concentration in this segment.", best_source_snippet: "Top customer accounts for ~28% of ARR.", snippet_label: "Contradicted source phrase" },
+        { claim: "Deal structure is $200M cash plus $100M stock with a 3-year earn-out.", type: "FACTUAL", role: "analyst-claim", score: 84, match_confidence: 84, verification_channel: "source-grounding", integrity_score: 80, status: "PLAUSIBLE", consistency: "CONSISTENT", reasoning: "Semantic grounding verdict: PARTIAL.", best_source_snippet: "Deal structure is $200M cash + $100M stock. Earn-out over 3 years based on EBITDA targets.", snippet_label: "Closest Source Match" },
+        { claim: "Q1 2025 customer-data exposure event raises diligence risk.", type: "FACTUAL", role: "external-context", score: 92, match_confidence: 92, verification_channel: "knowledge-check", knowledge_support: "SUPPORTED", integrity_score: 89, status: "VERIFIED", consistency: "CONSISTENT", reasoning: "Supported by external reporting; not present in the pitch deck.", best_source_snippet: "TargetCo disclosed a customer data exposure event in Q1 2025.", snippet_label: "Closest Source Match" }
       ]
     })
   },

@@ -7,7 +7,12 @@ from agents.utils import get_prompt, get_gemini_client, PRO_MODEL, FLASH_MODEL, 
 logger = logging.getLogger(__name__)
 
 
-CACHED_FALLBACK_RESULTS = """Source: https://techcrunch.com/targetco-funding
+# TargetCo cached results are kept only as a fallback for the built-in TargetCo
+# demo scenario. They MUST NOT be returned for unrelated pitches — that
+# contaminates the workspace with fictional logistics-SaaS financials (see
+# 2026-05-15 CocoaGuard run where this produced "$1.2B logistics company"
+# noise across the whole brief).
+TARGETCO_DEMO_RESULTS = """Source: https://techcrunch.com/targetco-funding
 Content: TargetCo raised $80M Series C led by VentureFront at a $1.2B post-money valuation. Customers cited include three Fortune 500 logistics operators; the top customer reportedly accounts for ~28% of ARR.
 
 Source: https://www.crunchbase.com/organization/targetco
@@ -20,12 +25,35 @@ Source: https://blog.targetco.com/security-incident-2025
 Content: TargetCo disclosed a customer data exposure event in Q1 2025 affecting two enterprise tenants. The company says it has remediated and engaged a third-party auditor.
 """
 
+NO_RESEARCH_STUB = (
+    "[No external research available — TAVILY_API_KEY is not configured on this deployment, "
+    "and no relevant cached fixture matches this topic.]\n\n"
+    "Proceed using only the user-provided source materials (uploaded documents, images, URLs, "
+    "and pasted text). Do NOT invent competitor names, funding rounds, ARR figures, customer "
+    "concentration percentages, security incidents, or other quantitative facts. If a question "
+    "requires external context you do not have, flag it as a follow-up rather than fabricating "
+    "a number."
+)
+
+
+def _is_targetco_topic(topic: str) -> bool:
+    """Return True only when the orchestrator's topic genuinely references the
+    bundled TargetCo demo (so we don't dump SaaS-logistics numbers onto an
+    agritech / healthcare / fintech pitch by accident)."""
+    if not topic:
+        return False
+    t = topic.lower()
+    return "targetco" in t or "logismart" in t
+
 
 async def search_tavily(query: str) -> str:
     api_key = os.getenv("TAVILY_API_KEY")
     if not api_key:
-        logger.warning("TAVILY_API_KEY not set; using cached fallback results")
-        return CACHED_FALLBACK_RESULTS
+        if _is_targetco_topic(query):
+            logger.warning("TAVILY_API_KEY not set; serving TargetCo demo fixture for topic %r", query)
+            return TARGETCO_DEMO_RESULTS
+        logger.warning("TAVILY_API_KEY not set and topic %r is not the TargetCo demo; returning no-research stub", query)
+        return NO_RESEARCH_STUB
 
     async with httpx.AsyncClient() as client:
         try:
@@ -42,14 +70,18 @@ async def search_tavily(query: str) -> str:
             response.raise_for_status()
             results = response.json().get("results", [])
             if not results:
-                logger.warning("Tavily returned no results; using cached fallback")
-                return CACHED_FALLBACK_RESULTS
+                logger.warning("Tavily returned no results for %r", query)
+                if _is_targetco_topic(query):
+                    return TARGETCO_DEMO_RESULTS
+                return NO_RESEARCH_STUB
             return "\n\n".join(
                 f"Source: {r['url']}\nContent: {r['content']}" for r in results
             )
         except Exception as e:
-            logger.error(f"Tavily search error: {e}; using cached fallback")
-            return CACHED_FALLBACK_RESULTS
+            logger.error(f"Tavily search error: {e}")
+            if _is_targetco_topic(query):
+                return TARGETCO_DEMO_RESULTS
+            return NO_RESEARCH_STUB
 
 async def run_researcher(session_id: str, topic: str):
     logger.info(f"Starting Researcher agent for session {session_id}")
