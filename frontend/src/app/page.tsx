@@ -170,7 +170,7 @@ export default function Home() {
         return;
       }
       try {
-        const res = await fetch("/api/", { cache: "no-store" });
+        const res = await fetch("/api", { cache: "no-store" });
         if (res.ok) setBackendStatus("online");
         else setBackendStatus("offline");
       } catch {
